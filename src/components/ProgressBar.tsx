@@ -1,0 +1,1 @@
+export const ProgressBar = ({ value, max }: { value: number; max: number }) => <div className="h-2 rounded bg-slate-800"><div className="h-2 rounded bg-violet-500" style={{ width: `${Math.min(100, max ? (value / max) * 100 : 0)}%` }} /></div>;
