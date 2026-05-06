@@ -1,3 +1,9 @@
-import clsx from "clsx";
 import type { SelectHTMLAttributes } from "react";
-export const Select = (props: SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} className={clsx("w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 outline-none focus:border-violet-500", props.className)} />;
+
+export function Select({ className = "", children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select className={`w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-violet-400 ${className}`} {...props}>
+      {children}
+    </select>
+  );
+}

@@ -1,3 +1,5 @@
-import clsx from "clsx";
 import type { TextareaHTMLAttributes } from "react";
-export const Textarea = (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} className={clsx("w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 min-h-40 outline-none focus:border-violet-500", props.className)} />;
+
+export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={`w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-violet-400 ${className}`} {...props} />;
+}

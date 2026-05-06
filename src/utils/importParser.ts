@@ -1,42 +1,83 @@
-import { parse, isValid, format as fmt } from "date-fns";
 import type { ContentFormat, ImportedPlanRow } from "../types";
 import { createId } from "./ids";
 
-const normalizeFormat = (raw: string): ContentFormat => {
-  const v = raw.trim().toLowerCase();
-  if (["reels", "рилс", "reel"].includes(v)) return "reels";
-  if (["stories", "story", "сторис"].includes(v)) return "stories";
-  if (["post", "пост"].includes(v)) return "post";
-  if (["carousel", "карусель", "пост-карусель", "карусель-пост"].includes(v)) return "carousel";
-  if (["video", "видео"].includes(v)) return "video";
-  if (["article", "статья"].includes(v)) return "article";
-  return "other";
+const formatMap: Record<string, ContentFormat> = {
+  reels: "reels",
+  reel: "reels",
+  рилс: "reels",
+  stories: "stories",
+  story: "stories",
+  сторис: "stories",
+  post: "post",
+  пост: "post",
+  carousel: "carousel",
+  карусель: "carousel",
+  "пост-карусель": "carousel",
+  "карусель-пост": "carousel",
+  video: "video",
+  видео: "video",
+  article: "article",
+  статья: "article",
 };
-const parseDate = (raw: string, year: number) => {
-  const value = raw.trim();
-  const candidates = ["d.MM", "dd.MM", "d.MM.yyyy", "dd.MM.yyyy", "yyyy-MM-dd"]
-    .map((f) => parse(value, f, new Date(year, 0, 1)))
-    .find((d) => isValid(d));
-  if (!candidates) return "";
-  const withYear = value.includes(".") && !value.includes(String(year)) && !/\d{4}-\d{2}-\d{2}/.test(value) ? parse(`${value}.${year}`, "d.MM.yyyy", new Date()) : candidates;
-  return isValid(withYear) ? fmt(withYear, "yyyy-MM-dd") : "";
-};
-const expertFromNotes = (notes: string) => notes.match(/\b[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+\b/)?.[0];
 
-export const parsePlanText = (text: string, currentYear: number): ImportedPlanRow[] =>
-  text.split("\n").map((line) => line.trim()).filter(Boolean).map((raw) => {
-    const parts = raw.includes("|") ? raw.split("|").map((x) => x.trim()) : raw.includes(" - ") ? raw.split(" - ").map((x) => x.trim()) : ["" , "other", raw];
-    const [dateRaw = "", formatRaw = "other", titleRaw = "", ...rest] = parts;
-    const notes = rest.join(" ").trim();
-    const format = normalizeFormat(formatRaw);
-    const publishDate = parseDate(dateRaw, currentYear);
-    const errors: string[] = []; const warnings: string[] = [];
-    if (!publishDate) errors.push("Дата не распознана");
-    if (!titleRaw.trim()) errors.push("Пустое название");
-    if (format === "other") warnings.push("Формат не распознан");
-    const parsed = raw.includes("|") || raw.includes(" - ");
-    return {
-      id: createId("row"), raw, dateRaw, publishDate, format, title: titleRaw.trim(), notes: notes || undefined, expert: notes ? expertFromNotes(notes) : undefined,
-      isValid: errors.length === 0, errors, warnings, source: "quick_import", confidence: parsed ? 1 : 0.4,
-    };
-  });
+function normalizeFormat(value: string): ContentFormat {
+  return formatMap[value.trim().toLowerCase()] ?? "other";
+}
+
+function parseDateToISO(raw: string, currentYear: number): string {
+  const value = raw.trim();
+  if (!value) return "";
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return value;
+  const ru = value.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?$/);
+  if (!ru) return "";
+  const day = Number(ru[1]);
+  const month = Number(ru[2]);
+  const year = Number(ru[3] ?? currentYear);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function extractExpert(notes?: string): string | undefined {
+  return notes?.match(/\b[А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+\b/u)?.[0];
+}
+
+export function parsePlanText(text: string, currentYear: number): ImportedPlanRow[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((raw) => {
+      const hasPipe = raw.includes("|");
+      const hasDash = raw.includes(" - ");
+      const parts = hasPipe ? raw.split("|") : hasDash ? raw.split(" - ") : [raw];
+      const parsed = hasPipe || hasDash;
+      const dateRaw = parsed ? (parts[0] ?? "").trim() : "";
+      const formatRaw = parsed ? (parts[1] ?? "").trim() : "";
+      const title = parsed ? (parts[2] ?? "").trim() : raw;
+      const notes = parsed ? parts.slice(3).join(" ").trim() || undefined : undefined;
+      const format = normalizeFormat(formatRaw);
+      const publishDate = parsed ? parseDateToISO(dateRaw, currentYear) : "";
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      if (!publishDate) errors.push("Дата не распознана");
+      if (!title) errors.push("Название не заполнено");
+      if (format === "other") warnings.push("Формат не распознан");
+      return {
+        id: createId("row"),
+        raw,
+        dateRaw,
+        publishDate,
+        format,
+        title,
+        notes,
+        expert: extractExpert(notes),
+        isValid: Boolean(publishDate && title),
+        errors,
+        warnings,
+        source: "quick_import",
+        confidence: parsed ? 1 : 0.4,
+      };
+    });
+}

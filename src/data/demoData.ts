@@ -1,15 +1,58 @@
-import type { PlanType, RoleKey, Subscription, Team, TeamMember, Project, RoleMapping } from "../types";
+import type { Project, RoleKey, RoleMapping, Subscription, Team, TeamMember } from "../types";
 import { createId } from "../utils/ids";
 
-export const makeDemoData = () => {
+export function createDemoDataset() {
   const now = new Date().toISOString();
-  const team: Team = { id: createId("team"), name: "Briefly Demo Team", createdAt: now, plan: "free" as PlanType };
-  const project: Project = { id: createId("project"), teamId: team.id, name: "SKIN BURO", description: "Демо-проект контент-команды", color: "violet", createdAt: now };
-  const defs: [string, RoleKey, string][] = [["Алина", "project_manager", "🧭"], ["Дима", "designer", "🎨"], ["Лена", "copywriter", "✍️"], ["Игорь", "reels_maker", "🎬"], ["Аня", "stories_maker", "📱"], ["Маша", "publisher", "🚀"]];
-  const members: TeamMember[] = defs.map(([name, roleLabel, avatarEmoji]) => ({ id: createId("member"), teamId: team.id, name, roleLabel, avatarEmoji, createdAt: now }));
-  const byName = (name: string) => members.find((m) => m.name === name)?.id ?? "";
-  const map: [RoleKey, string][] = [["copywriter", "Лена"], ["designer", "Дима"], ["reels_maker", "Игорь"], ["stories_maker", "Аня"], ["publisher", "Маша"], ["reviewer", "Алина"], ["project_manager", "Алина"]];
-  const roleMappings: RoleMapping[] = map.map(([role, who]) => ({ id: createId("rm"), teamId: team.id, projectId: project.id, role, memberId: byName(who) }));
-  const subscription: Subscription = { id: createId("sub"), teamId: team.id, plan: "free", status: "trial", startedAt: now, aiImportsLimit: 0, aiImportsUsed: 0, projectsLimit: 3, membersLimit: 7, contentItemsLimit: 50 };
+  const teamId = createId("team");
+  const projectId = createId("project");
+  const team: Team = { id: teamId, name: "Briefly Demo Team", createdAt: now, plan: "free" };
+  const project: Project = { id: projectId, teamId, name: "SKIN BURO", description: "Демо-проект контент-команды", color: "violet", createdAt: now };
+  const memberSeed: Array<[string, string, string, string]> = [
+    ["Алина", "project manager", "🧭", "alina_pm"],
+    ["Дима", "designer", "🎨", "dima_design"],
+    ["Лена", "copywriter", "✍️", "lena_text"],
+    ["Игорь", "reels maker", "🎬", "igor_reels"],
+    ["Аня", "stories maker", "📱", "anya_stories"],
+    ["Маша", "publisher", "🚀", "masha_pub"],
+  ];
+  const members: TeamMember[] = memberSeed.map(([name, roleLabel, avatarEmoji, username]) => ({
+    id: createId("member"),
+    teamId,
+    name,
+    username,
+    roleLabel,
+    avatarEmoji,
+    createdAt: now,
+  }));
+  const find = (name: string) => members.find((member) => member.name === name)?.id ?? members[0].id;
+  const roleMap: Record<RoleKey, string> = {
+    copywriter: find("Лена"),
+    designer: find("Дима"),
+    reels_maker: find("Игорь"),
+    stories_maker: find("Аня"),
+    publisher: find("Маша"),
+    reviewer: find("Алина"),
+    project_manager: find("Алина"),
+    other: find("Алина"),
+  };
+  const roleMappings: RoleMapping[] = Object.entries(roleMap).map(([role, memberId]) => ({
+    id: createId("rolemap"),
+    teamId,
+    projectId,
+    role: role as RoleKey,
+    memberId,
+  }));
+  const subscription: Subscription = {
+    id: createId("sub"),
+    teamId,
+    plan: "free",
+    status: "trial",
+    startedAt: now,
+    aiImportsLimit: 0,
+    aiImportsUsed: 0,
+    projectsLimit: 3,
+    membersLimit: 7,
+    contentItemsLimit: 50,
+  };
   return { team, project, members, roleMappings, subscription };
-};
+}

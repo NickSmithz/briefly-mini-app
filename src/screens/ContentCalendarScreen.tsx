@@ -1,10 +1,42 @@
+import { useState } from "react";
 import { Card } from "../components/Card";
-import { StatusBadge } from "../components/StatusBadge";
+import { ContentItemCard } from "../components/ContentItemCard";
+import { Select } from "../components/Select";
+import { formatOptions } from "../data/formatOptions";
+import type { ContentFormat, ContentStatus } from "../types";
 import { useAppStore } from "../store/useAppStore";
-import { formatDate } from "../utils/dates";
-import { getImportSourceLabel } from "../utils/status";
-import { Button } from "../components/Button";
-export const ContentCalendarScreen = () => {
-  const s = useAppStore(); const items = [...s.contentItems].sort((a, b) => a.publishDate.localeCompare(b.publishDate));
-  return <div className="space-y-3"><h2 className="text-lg font-semibold">Контент-календарь</h2>{items.map((item) => <Card key={item.id} className="space-y-2"><div className="text-xs text-slate-400">{formatDate(item.publishDate)} • {getImportSourceLabel(item.importSource)}</div><div className="font-semibold">{item.title}</div><div className="text-sm">{item.notes}</div><StatusBadge status={item.status} /><div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => s.updateContentItem(item.id, { status: "in_work" })}>В работе</Button><Button size="sm" variant="ghost" onClick={() => s.updateContentItem(item.id, { status: "review" })}>На проверке</Button><Button size="sm" variant="success" onClick={() => s.updateContentItem(item.id, { status: "ready" })}>Готово</Button><Button size="sm" onClick={() => s.updateContentItem(item.id, { status: "published" })}>Опубликовано</Button></div></Card>)}</div>;
-};
+import { formatDate, sortByDate } from "../utils/dates";
+
+export function ContentCalendarScreen() {
+  const state = useAppStore();
+  const setSelectedProject = useAppStore((s) => s.setSelectedProject);
+  const updateContentItem = useAppStore((s) => s.updateContentItem);
+  const [formatFilter, setFormatFilter] = useState<ContentFormat | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
+  const items = sortByDate(state.contentItems.filter((item) => (!state.selectedProjectId || item.projectId === state.selectedProjectId) && (formatFilter === "all" || item.format === formatFilter) && (statusFilter === "all" || item.status === statusFilter)), "publishDate");
+  const groups = items.reduce<Record<string, typeof items>>((acc, item) => {
+    acc[item.publishDate] = [...(acc[item.publishDate] ?? []), item];
+    return acc;
+  }, {});
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-3">
+        <h2 className="text-xl font-black">Контент-календарь</h2>
+        <Select value={state.selectedProjectId ?? ""} onChange={(e) => setSelectedProject(e.target.value)}>
+          {state.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+        </Select>
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={formatFilter} onChange={(e) => setFormatFilter(e.target.value as ContentFormat | "all")}><option value="all">Все форматы</option>{formatOptions.map((o) => <option value={o.value} key={o.value}>{o.label}</option>)}</Select>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as ContentStatus | "all")}><option value="all">Все статусы</option><option value="idea">Идея</option><option value="in_work">В работе</option><option value="review">Проверка</option><option value="ready">Готово</option><option value="published">Опубликовано</option></Select>
+        </div>
+      </Card>
+      {Object.entries(groups).map(([date, group]) => (
+        <section key={date} className="space-y-2">
+          <h3 className="font-bold">{formatDate(date)}</h3>
+          {group.map((item) => <ContentItemCard key={item.id} item={item} tasksCount={state.tasks.filter((task) => task.contentItemId === item.id).length} onStatus={(status: ContentStatus) => updateContentItem(item.id, { status })} />)}
+        </section>
+      ))}
+      {!items.length && <p className="text-sm text-slate-500">Публикаций пока нет. Импортируйте первый план.</p>}
+    </div>
+  );
+}

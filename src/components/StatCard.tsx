@@ -1,2 +1,10 @@
 import { Card } from "./Card";
-export const StatCard = ({ label, value }: { label: string; value: number | string }) => <Card><div className="text-xs text-slate-400">{label}</div><div className="text-2xl font-bold">{value}</div></Card>;
+
+export function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <Card className="p-3">
+      <div className="text-2xl font-bold text-white">{value}</div>
+      <div className="mt-1 text-xs text-slate-400">{label}</div>
+    </Card>
+  );
+}

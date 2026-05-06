@@ -1,38 +1,33 @@
-import type { ContentTemplate, RoleMapping, Task, TaskGenerationMode } from "../types";
-import type { ContentItem } from "../types";
+import type { ContentItem, ContentTemplate, RoleMapping, Task, TaskGenerationMode } from "../types";
 import { addDaysToISO } from "./dates";
 import { createId } from "./ids";
 
-type Params = {
+export function generateTasksForContentItem(params: {
   contentItem: ContentItem;
   projectId: string;
   teamId: string;
   roleMappings: RoleMapping[];
   generationMode: TaskGenerationMode;
   templates: ContentTemplate[];
-};
-
-export const generateTasksForContentItem = ({ contentItem, projectId, teamId, roleMappings, generationMode, templates }: Params): Task[] => {
+}): Task[] {
+  const { contentItem, projectId, teamId, roleMappings, generationMode, templates } = params;
   if (generationMode === "none") return [];
-  const template = templates.find((t) => t.format === contentItem.format);
+  const template = templates.find((item) => item.format === contentItem.format) ?? templates.find((item) => item.format === "other");
   if (!template) return [];
   const now = new Date().toISOString();
-  const base = generationMode === "minimal" ? template.minimalTasks : template.fullTasks.length ? template.fullTasks : template.minimalTasks;
-  return base.map((task) => {
-    const mapping = roleMappings.find((rm) => rm.projectId === projectId && rm.role === task.role);
-    return {
-      id: createId("task"),
-      teamId,
-      projectId,
-      contentItemId: contentItem.id,
-      title: task.title.replace("{title}", contentItem.title),
-      role: task.role,
-      assigneeId: mapping?.memberId,
-      dueDate: addDaysToISO(contentItem.publishDate, task.dueOffsetDays),
-      status: "todo",
-      priority: task.priority ?? "normal",
-      createdAt: now,
-      updatedAt: now,
-    };
-  });
-};
+  const tasks = generationMode === "minimal" ? template.minimalTasks : template.fullTasks;
+  return tasks.map((templateTask) => ({
+    id: createId("task"),
+    teamId,
+    projectId,
+    contentItemId: contentItem.id,
+    title: templateTask.title.replace("{title}", contentItem.title),
+    assigneeId: roleMappings.find((mapping) => mapping.projectId === projectId && mapping.role === templateTask.role)?.memberId,
+    role: templateTask.role,
+    dueDate: addDaysToISO(contentItem.publishDate, templateTask.dueOffsetDays),
+    status: "todo",
+    priority: templateTask.priority ?? "normal",
+    createdAt: now,
+    updatedAt: now,
+  }));
+}

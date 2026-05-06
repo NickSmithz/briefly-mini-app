@@ -1,15 +1,44 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "../components/Button";
-import { Card } from "../components/Card";
 import { Input } from "../components/Input";
-import { useAppStore } from "../store/useAppStore";
-import { createId } from "../utils/ids";
-export const ProjectsScreen = () => {
-  const s = useAppStore(); const [name, setName] = useState(""); const [description, setDescription] = useState("");
-  const teamId = s.activeTeamId ?? ""; const list = s.projects.filter((p) => p.teamId === teamId && !p.archived);
-  return <div className="space-y-3"><h2 className="font-semibold text-lg">Проекты</h2>
-    <Card className="space-y-2"><Input placeholder="Название проекта" value={name} onChange={(e) => setName(e.target.value)} /><Input placeholder="Описание" value={description} onChange={(e) => setDescription(e.target.value)} /><Button fullWidth onClick={() => { if (!name.trim()) return; s.addProject({ id: createId("project"), teamId, name, description, color: "violet", createdAt: new Date().toISOString() }); setName(""); setDescription(""); }}><Plus size={16} className="inline" /> Добавить проект</Button></Card>
-    {list.map((p) => <Card key={p.id} className="space-y-1" onClick={() => { s.setSelectedProject(p.id); s.setActiveTab("projects"); }}><div className="font-semibold">{p.name}</div><div className="text-sm text-slate-400">{p.description}</div></Card>)}
-  </div>;
-};
+import { Modal } from "../components/Modal";
+import { PlanLimitBanner } from "../components/PlanLimitBanner";
+import { ProjectCard } from "../components/ProjectCard";
+import { useAppStore, getUsageForActiveTeam, selectActiveSubscription } from "../store/useAppStore";
+import { ProjectDetailScreen } from "./ProjectDetailScreen";
+
+export function ProjectsScreen() {
+  const state = useAppStore();
+  const addProject = useAppStore((s) => s.addProject);
+  const setSelectedProject = useAppStore((s) => s.setSelectedProject);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const projects = state.projects.filter((project) => !project.archived);
+  const sub = selectActiveSubscription(state);
+  const usage = getUsageForActiveTeam(state);
+  if (detailOpen && state.selectedProjectId) {
+    return <ProjectDetailScreen onBack={() => setDetailOpen(false)} />;
+  }
+  return (
+    <div className="space-y-4">
+      <Button fullWidth onClick={() => setOpen(true)}><Plus size={18} />Добавить проект</Button>
+      {sub && <PlanLimitBanner label="Проекты" used={usage.projects} limit={sub.projectsLimit} />}
+      {projects.map((project) => {
+        const content = state.contentItems.filter((item) => item.projectId === project.id);
+        return <ProjectCard key={project.id} project={project} contentCount={content.length} tasks={state.tasks.filter((task) => task.projectId === project.id)} nextDate={content[0]?.publishDate} onOpen={() => { setSelectedProject(project.id); setDetailOpen(true); }} />;
+      })}
+      {open && (
+        <Modal title="Новый проект" onClose={() => setOpen(false)}>
+          <div className="space-y-3">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" />
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" />
+            <Button fullWidth disabled={!name.trim()} onClick={() => { addProject({ name, description, color: "indigo" }); setName(""); setDescription(""); setOpen(false); }}>Создать</Button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
