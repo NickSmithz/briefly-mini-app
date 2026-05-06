@@ -36,3 +36,19 @@ export function canEditProjectTasks(params: {
   if (!params.memberId) return false;
   return getProjectManagerMemberId(params.projectId, params.roleMappings) === params.memberId;
 }
+
+export function isProjectManagerView(
+  selectedMemberId: string | null,
+  members: TeamMember[],
+  roleMappings: RoleMapping[],
+): boolean {
+  if (!selectedMemberId || selectedMemberId === "all") return true;
+
+  const member = members.find((item) => item.id === selectedMemberId);
+  const roleLabel = member?.roleLabel.toLowerCase() ?? "";
+  if (roleLabel.includes("project manager") || roleLabel.includes("руководитель") || roleLabel.includes("project")) {
+    return true;
+  }
+
+  return roleMappings.some((mapping) => mapping.role === "project_manager" && mapping.memberId === selectedMemberId);
+}

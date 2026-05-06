@@ -17,8 +17,10 @@ export type TaskCardProps = {
 };
 
 export function TaskCard({ task, assignee, project, contentItem, onStatusChange, onEdit }: TaskCardProps) {
+  const isDone = task.status === "done";
+
   return (
-    <Card className="space-y-3 p-3">
+    <Card className={`space-y-3 p-3 ${isDone ? "opacity-70" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h4 className="font-semibold">{task.title}</h4>
@@ -35,7 +37,7 @@ export function TaskCard({ task, assignee, project, contentItem, onStatusChange,
           Редактировать
         </Button>
       )}
-      {onStatusChange && (
+      {onStatusChange && !isDone && (
         <div className="grid grid-cols-2 gap-2">
           <Button size="sm" variant="secondary" onClick={() => onStatusChange(task.id, "in_progress")}>В работу</Button>
           <Button size="sm" variant="secondary" onClick={() => onStatusChange(task.id, "review")}>На проверку</Button>
