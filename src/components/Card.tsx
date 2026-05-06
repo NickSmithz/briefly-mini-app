@@ -1,3 +1,11 @@
-import clsx from "clsx";
-import type { PropsWithChildren } from "react";
-export const Card = ({ children, className }: PropsWithChildren<{ className?: string }>) => <div className={clsx("rounded-2xl bg-slate-900 border border-slate-800 p-4 shadow-sm", className)}>{children}</div>;
+import type { HTMLAttributes } from "react";
+
+type CardProps = HTMLAttributes<HTMLDivElement>;
+
+export function Card({ children, className = "", ...props }: CardProps) {
+  return (
+    <div className={`rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-soft ${className}`} {...props}>
+      {children}
+    </div>
+  );
+}
