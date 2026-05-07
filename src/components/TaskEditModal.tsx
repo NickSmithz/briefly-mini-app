@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
 import type { RoleKey, RoleMapping, Task, TaskStatus, TeamMember } from "../types";
+import { useAppStore } from "../store/useAppStore";
+import { formatDateShort } from "../utils/dates";
+import { getFormatLabel } from "../utils/status";
 import { hapticFeedback } from "../utils/telegram";
 import { Button } from "./Button";
 import { Input } from "./Input";
@@ -14,6 +17,13 @@ type TaskForm = {
   dueDate: string;
   status: TaskStatus;
   priority: Task["priority"];
+};
+
+type ContentForm = {
+  title: string;
+  topic: string;
+  expert: string;
+  notes: string;
 };
 
 type TaskEditModalProps = {
@@ -51,6 +61,8 @@ const priorityOptions: { value: Task["priority"]; label: string }[] = [
 ];
 
 export function TaskEditModal({ task, members, roleMappings = [], onSave, onCancel, onDelete }: TaskEditModalProps) {
+  const contentItem = useAppStore((state) => state.contentItems.find((item) => item.id === task.contentItemId));
+  const updateContentItem = useAppStore((state) => state.updateContentItem);
   const [form, setForm] = useState<TaskForm>({
     title: task.title,
     description: task.description ?? "",
@@ -60,7 +72,14 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
     status: task.status,
     priority: task.priority,
   });
+  const [contentForm, setContentForm] = useState<ContentForm>({
+    title: contentItem?.title ?? "",
+    topic: contentItem?.topic ?? "",
+    expert: contentItem?.expert ?? "",
+    notes: contentItem?.notes ?? "",
+  });
   const [error, setError] = useState("");
+  const [contentError, setContentError] = useState("");
 
   const mappedMember = useMemo(() => {
     if (!form.role) return null;
@@ -73,12 +92,23 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
     if (key === "title" && String(value).trim()) setError("");
   };
 
+  const updateContent = <K extends keyof ContentForm>(key: K, value: ContentForm[K]) => {
+    setContentForm((current) => ({ ...current, [key]: value }));
+    if (key === "title" && String(value).trim()) setContentError("");
+  };
+
   const handleSave = () => {
     const title = form.title.trim();
+    const contentTitle = contentForm.title.trim();
     if (!title) {
       setError("Название задачи обязательно.");
       return;
     }
+    if (contentItem && !contentTitle) {
+      setContentError("Название публикации не может быть пустым.");
+      return;
+    }
+
     onSave(task.id, {
       title,
       description: form.description.trim() || undefined,
@@ -88,6 +118,16 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
       status: form.status,
       priority: form.priority,
     });
+
+    if (contentItem) {
+      updateContentItem(contentItem.id, {
+        title: contentTitle,
+        topic: contentForm.topic.trim() || undefined,
+        expert: contentForm.expert.trim() || undefined,
+        notes: contentForm.notes.trim() || undefined,
+      });
+    }
+
     hapticFeedback("success");
   };
 
@@ -161,6 +201,42 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
               ))}
             </Select>
           </label>
+
+          {contentItem && (
+            <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-3">
+              <div>
+                <h3 className="font-bold">Связанная публикация</h3>
+                <p className="mt-1 text-xs text-slate-500">{getFormatLabel(contentItem.format)} · {formatDateShort(contentItem.publishDate)}</p>
+              </div>
+
+              <label className="block space-y-1 text-sm text-slate-300">
+                <span>Название публикации</span>
+                <Input value={contentForm.title} onChange={(event) => updateContent("title", event.target.value)} />
+                {contentError && <span className="text-xs text-rose-200">{contentError}</span>}
+              </label>
+
+              <label className="block space-y-1 text-sm text-slate-300">
+                <span>Тема</span>
+                <Input value={contentForm.topic} onChange={(event) => updateContent("topic", event.target.value)} />
+              </label>
+
+              <label className="block space-y-1 text-sm text-slate-300">
+                <span>Эксперт / в кадре</span>
+                <Input value={contentForm.expert} onChange={(event) => updateContent("expert", event.target.value)} />
+              </label>
+
+              <label className="block space-y-1 text-sm text-slate-300">
+                <span>Заметки / референсы</span>
+                <Textarea
+                  rows={4}
+                  value={contentForm.notes}
+                  onChange={(event) => updateContent("notes", event.target.value)}
+                  placeholder="Ссылки, референсы, комментарии, ТЗ..."
+                />
+                <span className="text-xs text-slate-500">Ссылки будут кликабельны в карточке задачи.</span>
+              </label>
+            </section>
+          )}
         </div>
 
         <div className="sticky bottom-0 mt-5 space-y-2 bg-slate-900 pt-3">

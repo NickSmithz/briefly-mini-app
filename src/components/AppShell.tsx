@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
 import { Settings } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import { useKeyboardDoneBar } from "../hooks/useKeyboardDoneBar";
 import { Button } from "./Button";
 import { BottomNav } from "./BottomNav";
+import { KeyboardDoneBar } from "./KeyboardDoneBar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const setActiveTab = useAppStore((state) => state.setActiveTab);
   const lastSuccessMessage = useAppStore((state) => state.lastSuccessMessage);
   const clearSuccessMessage = useAppStore((state) => state.clearSuccessMessage);
+  const { isKeyboardBarVisible, keyboardHint, hideKeyboard } = useKeyboardDoneBar();
   return (
     <div className="min-h-screen bg-slate-950">
       <main className="safe-top safe-bottom mx-auto min-h-screen w-full max-w-[480px] px-4">
@@ -28,6 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <BottomNav />
+      <KeyboardDoneBar visible={isKeyboardBarVisible} hint={keyboardHint} onDone={hideKeyboard} />
     </div>
   );
 }
