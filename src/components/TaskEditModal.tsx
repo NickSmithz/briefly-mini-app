@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FocusEvent } from "react";
 import type { RoleKey, RoleMapping, Task, TaskStatus, TeamMember } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { formatDateShort } from "../utils/dates";
@@ -60,9 +61,15 @@ const priorityOptions: { value: Task["priority"]; label: string }[] = [
   { value: "high", label: "Высокий" },
 ];
 
+function isEditableField(target: EventTarget | null) {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+}
+
 export function TaskEditModal({ task, members, roleMappings = [], onSave, onCancel, onDelete }: TaskEditModalProps) {
   const contentItem = useAppStore((state) => state.contentItems.find((item) => item.id === task.contentItemId));
   const updateContentItem = useAppStore((state) => state.updateContentItem);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isEditingText, setIsEditingText] = useState(false);
   const [form, setForm] = useState<TaskForm>({
     title: task.title,
     description: task.description ?? "",
@@ -81,11 +88,25 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
   const [error, setError] = useState("");
   const [contentError, setContentError] = useState("");
 
+  useEffect(() => () => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+  }, []);
+
   const mappedMember = useMemo(() => {
     if (!form.role) return null;
     const mapping = roleMappings.find((item) => item.projectId === task.projectId && item.role === form.role);
     return members.find((member) => member.id === mapping?.memberId) ?? null;
   }, [form.role, members, roleMappings, task.projectId]);
+
+  const handleFocusCapture = (event: FocusEvent<HTMLDivElement>) => {
+    if (!isEditableField(event.target)) return;
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setIsEditingText(true);
+  };
+
+  const handleBlurCapture = () => {
+    blurTimerRef.current = setTimeout(() => setIsEditingText(false), 150);
+  };
 
   const update = <K extends keyof TaskForm>(key: K, value: TaskForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -139,13 +160,13 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/85 p-3">
-      <div className="max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-soft">
-        <div className="mb-4">
+      <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-[480px] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-soft">
+        <div className="shrink-0 p-4 pb-3">
           <h2 className="text-xl font-black">Редактировать задачу</h2>
           <p className="mt-1 text-sm text-slate-400">Изменения сохраняются в localStorage.</p>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4" onFocusCapture={handleFocusCapture} onBlurCapture={handleBlurCapture}>
           <label className="block space-y-1 text-sm text-slate-300">
             <span>Название</span>
             <Input value={form.title} onChange={(event) => update("title", event.target.value)} />
@@ -237,13 +258,17 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
               </label>
             </section>
           )}
+
+          {isEditingText && <div className="h-20" />}
         </div>
 
-        <div className="sticky bottom-0 mt-5 space-y-2 bg-slate-900 pt-3">
-          <Button fullWidth size="lg" onClick={handleSave}>Сохранить</Button>
-          <Button fullWidth variant="secondary" onClick={onCancel}>Отмена</Button>
-          <Button fullWidth variant="danger" onClick={handleDelete}>Удалить задачу</Button>
-        </div>
+        {!isEditingText && (
+          <div className="shrink-0 space-y-2 border-t border-slate-800 bg-slate-900/95 p-4 backdrop-blur">
+            <Button fullWidth size="lg" onClick={handleSave}>Сохранить</Button>
+            <Button fullWidth variant="secondary" onClick={onCancel}>Отмена</Button>
+            <Button fullWidth variant="danger" onClick={handleDelete}>Удалить задачу</Button>
+          </div>
+        )}
       </div>
     </div>
   );
