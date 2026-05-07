@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Brain, ClipboardPaste, KeyboardOff } from "lucide-react";
+import { Brain, ClipboardPaste } from "lucide-react";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Select } from "../components/Select";
@@ -19,8 +19,27 @@ export function ImportPlanScreen() {
   const parseImportText = useAppStore((state) => state.parseImportText);
   const setActiveTab = useAppStore((state) => state.setActiveTab);
   const planTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isImportTextareaFocused, setIsImportTextareaFocused] = useState(false);
   const [text, setText] = useState("");
   const projectId = selectedProjectId ?? projects[0]?.id ?? "";
+
+  const handleTextareaFocus = () => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setIsImportTextareaFocused(true);
+  };
+
+  const handleTextareaBlur = () => {
+    blurTimerRef.current = setTimeout(() => {
+      setIsImportTextareaFocused(false);
+    }, 150);
+  };
+
+  const hideKeyboard = () => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setIsImportTextareaFocused(false);
+    planTextareaRef.current?.blur();
+  };
 
   return (
     <div className="space-y-4">
@@ -42,22 +61,12 @@ export function ImportPlanScreen() {
           rows={10}
           value={text}
           enterKeyHint="enter"
+          onFocus={handleTextareaFocus}
+          onBlur={handleTextareaBlur}
           onChange={(e) => setText(e.target.value)}
           placeholder="5.05 | reels | Про ретинол | заметки"
         />
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-          <span>Каждая строка — отдельная публикация</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="min-h-8 px-2 text-xs text-slate-400 hover:text-white"
-            onClick={() => planTextareaRef.current?.blur()}
-          >
-            <KeyboardOff size={15} />
-            Скрыть клавиатуру
-          </Button>
-        </div>
+        <div className="mt-2 text-xs text-slate-400">Каждая строка — отдельная публикация</div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -81,6 +90,26 @@ export function ImportPlanScreen() {
       </Card>
 
       <Button fullWidth size="lg" disabled={!projectId || !text.trim()} onClick={() => { parseImportText(projectId, text); setActiveTab("import"); }}>Разобрать план</Button>
+
+      {isImportTextareaFocused && <div className="h-16" />}
+
+      {isImportTextareaFocused && (
+        <div className="fixed inset-x-0 bottom-0 z-[60]">
+          <div className="mx-auto max-w-[480px] border-t border-slate-800 bg-slate-950/95 px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)] backdrop-blur">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <span className="min-w-0 truncate text-xs text-slate-400">Enter — новая строка</span>
+              <button
+                type="button"
+                className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={hideKeyboard}
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
