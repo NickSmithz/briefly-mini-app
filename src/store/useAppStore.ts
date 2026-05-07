@@ -103,8 +103,8 @@ function validateRow(row: ImportedPlanRow, existingContentItems: ContentItem[] =
   const warnings = row.format === "other" ? ["Формат не распознан"] : [];
   if (!row.publishDate) errors.push("Дата не распознана");
   if (!row.title.trim()) errors.push("Название не заполнено");
-  const normalizedRow = { ...row, title: row.title.trim(), errors, warnings, isValid: errors.length === 0 };
-  return { ...normalizedRow, memoryWarnings: findSimilarContentItems(normalizedRow, existingContentItems) };
+  const validationRow = { ...row, title: row.title.trim(), errors, warnings, isValid: errors.length === 0 };
+  return { ...row, errors, warnings, isValid: errors.length === 0, memoryWarnings: findSimilarContentItems(validationRow, existingContentItems) };
 }
 
 export const useAppStore = create<AppState>()(
@@ -226,12 +226,12 @@ export const useAppStore = create<AppState>()(
           id: createId("content"),
           teamId: draft.teamId,
           projectId: draft.projectId,
-          title: row.title,
+          title: row.title.trim(),
           format: row.format,
           publishDate: row.publishDate,
-          topic: row.topic,
-          notes: row.notes,
-          expert: row.expert,
+          topic: row.topic?.trim() || undefined,
+          notes: row.notes?.trim() || undefined,
+          expert: row.expert?.trim() || undefined,
           status: "idea" as ContentStatus,
           importSource: row.source,
           sourceImportId: draft.id,
