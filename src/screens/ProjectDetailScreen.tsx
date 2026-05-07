@@ -9,6 +9,7 @@ import { TaskEditModal } from "../components/TaskEditModal";
 import { getProjectStats, useAppStore } from "../store/useAppStore";
 import { canEditProjectTasks, getCurrentMemberForProject } from "../utils/permissions";
 import { taskStatusLabels } from "../utils/status";
+import { hapticFeedback } from "../utils/telegram";
 
 const columns: TaskStatus[] = ["todo", "in_progress", "review", "done", "blocked"];
 
@@ -19,6 +20,7 @@ export function ProjectDetailScreen({ onBack }: { onBack?: () => void }) {
   const updateTaskStatus = useAppStore((s) => s.updateTaskStatus);
   const updateTask = useAppStore((s) => s.updateTask);
   const deleteTask = useAppStore((s) => s.deleteTask);
+  const assignExistingTasksByRole = useAppStore((s) => s.assignExistingTasksByRole);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
   const project = state.projects.find((item) => item.id === state.selectedProjectId);
@@ -36,6 +38,12 @@ export function ProjectDetailScreen({ onBack }: { onBack?: () => void }) {
   });
   const stats = getProjectStats(state, project.id);
   const tasks = state.tasks.filter((task) => task.projectId === project.id);
+  const unassignedRoleTasksCount = state.getUnassignedRoleTasksCount(project.id);
+  const assignUnassignedTasks = () => {
+    const count = assignExistingTasksByRole(project.id);
+    useAppStore.setState({ lastSuccessMessage: `Назначено ${count} задач` });
+    hapticFeedback("success");
+  };
   return (
     <div className="space-y-4">
       <Card>
@@ -59,6 +67,13 @@ export function ProjectDetailScreen({ onBack }: { onBack?: () => void }) {
         <StatCard label="review" value={stats.review} />
         <StatCard label="done" value={stats.done} />
       </div>
+      {unassignedRoleTasksCount > 0 && (
+        <Card className="space-y-2 border-amber-500/30 bg-amber-500/10 text-amber-100">
+          <div className="text-sm font-bold">Есть задачи без исполнителей</div>
+          <p className="text-xs text-amber-100/80">Можно назначить {unassignedRoleTasksCount} задач по ролям проекта.</p>
+          <Button size="sm" variant="secondary" onClick={assignUnassignedTasks}>Назначить</Button>
+        </Card>
+      )}
       {columns.map((status) => (
         <section key={status} className="space-y-2">
           <h3 className="font-bold">{taskStatusLabels[status]}</h3>

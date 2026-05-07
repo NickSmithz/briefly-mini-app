@@ -9,6 +9,7 @@ import { TeamMemberCard } from "../components/TeamMemberCard";
 import { roleLabels } from "../utils/status";
 import type { RoleKey } from "../types";
 import { getUsageForActiveTeam, selectActiveSubscription, useAppStore } from "../store/useAppStore";
+import { hapticFeedback } from "../utils/telegram";
 
 const roles: RoleKey[] = ["copywriter", "designer", "reels_maker", "stories_maker", "publisher", "reviewer", "project_manager"];
 
@@ -17,11 +18,20 @@ export function TeamScreen() {
   const addMember = useAppStore((s) => s.addMember);
   const removeMember = useAppStore((s) => s.removeMember);
   const setRoleMapping = useAppStore((s) => s.setRoleMapping);
+  const assignExistingTasksByRole = useAppStore((s) => s.assignExistingTasksByRole);
   const setSelectedProject = useAppStore((s) => s.setSelectedProject);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", username: "", roleLabel: "", avatarEmoji: "" });
   const sub = selectActiveSubscription(state);
   const usage = getUsageForActiveTeam(state);
+  const selectedProjectId = state.selectedProjectId;
+  const unassignedRoleTasksCount = selectedProjectId ? state.getUnassignedRoleTasksCount(selectedProjectId) : 0;
+  const assignUnassignedTasks = () => {
+    if (!selectedProjectId) return;
+    const count = assignExistingTasksByRole(selectedProjectId);
+    useAppStore.setState({ lastSuccessMessage: `Назначено ${count} задач` });
+    hapticFeedback("success");
+  };
   return (
     <div className="space-y-4">
       <Button fullWidth onClick={() => setOpen(true)}>Добавить участника</Button>
@@ -35,6 +45,13 @@ export function TeamScreen() {
         <Select value={state.selectedProjectId ?? ""} onChange={(e) => setSelectedProject(e.target.value)}>
           {state.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </Select>
+        {unassignedRoleTasksCount > 0 && (
+          <div className="space-y-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-100">
+            <div className="text-sm font-bold">Есть задачи без исполнителей</div>
+            <p className="text-xs text-amber-100/80">{unassignedRoleTasksCount} задач можно назначить по текущим ролям проекта.</p>
+            <Button size="sm" variant="secondary" onClick={assignUnassignedTasks}>Назначить автоматически</Button>
+          </div>
+        )}
         {roles.map((role) => {
           const mapping = state.roleMappings.find((item) => item.projectId === state.selectedProjectId && item.role === role);
           return (

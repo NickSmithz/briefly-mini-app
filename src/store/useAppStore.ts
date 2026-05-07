@@ -60,6 +60,8 @@ type AppState = {
   updateMember: (memberId: string, patch: Partial<TeamMember>) => void;
   removeMember: (memberId: string) => void;
   setRoleMapping: (projectId: string, role: RoleKey, memberId: string) => void;
+  assignExistingTasksByRole: (projectId: string, options?: { overwrite?: boolean }) => number;
+  getUnassignedRoleTasksCount: (projectId: string) => number;
   parseImportText: (projectId: string, text: string) => string;
   createImportDraft: (projectId: string, source: ImportSource, rawText: string, rows: ImportedPlanRow[]) => string;
   setActiveImportDraft: (draftId: string) => void;
@@ -169,6 +171,28 @@ export const useAppStore = create<AppState>()(
               : [...state.roleMappings, { id: createId("rolemap"), teamId, projectId, role, memberId }],
           };
         });
+      },
+      assignExistingTasksByRole: (projectId, options) => {
+        const state = get();
+        const overwrite = options?.overwrite ?? false;
+        const mappings = state.roleMappings.filter((mapping) => mapping.projectId === projectId && mapping.memberId);
+        const now = new Date().toISOString();
+        let updatedCount = 0;
+        const tasks = state.tasks.map((task) => {
+          if (task.projectId !== projectId || !task.role) return task;
+          const mapping = mappings.find((item) => item.role === task.role);
+          if (!mapping || (!overwrite && task.assigneeId)) return task;
+          if (task.assigneeId === mapping.memberId) return task;
+          updatedCount += 1;
+          return { ...task, assigneeId: mapping.memberId, updatedAt: now };
+        });
+        if (updatedCount > 0) set({ tasks });
+        return updatedCount;
+      },
+      getUnassignedRoleTasksCount: (projectId) => {
+        const state = get();
+        const mappedRoles = new Set(state.roleMappings.filter((mapping) => mapping.projectId === projectId && mapping.memberId).map((mapping) => mapping.role));
+        return state.tasks.filter((task) => task.projectId === projectId && task.role && !task.assigneeId && mappedRoles.has(task.role)).length;
       },
       parseImportText: (projectId, text) => {
         const rows = parsePlanText(text, new Date().getFullYear());
