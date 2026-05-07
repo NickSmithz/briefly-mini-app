@@ -70,6 +70,7 @@ export function ProjectDetailScreen({ onBack }: { onBack?: () => void }) {
               members={state.members}
               contentItem={state.contentItems.find((item) => item.id === task.contentItemId)}
               project={project}
+              showFullContext
               onStatusChange={updateTaskStatus}
               onEdit={canEditTasks ? setEditingTask : undefined}
             />

@@ -82,6 +82,7 @@ export function MyTasksScreen() {
       members={state.members}
       project={state.projects.find((project) => project.id === task.projectId)}
       contentItem={state.contentItems.find((contentItem) => contentItem.id === task.contentItemId)}
+      showFullContext
       onStatusChange={updateTaskStatus}
       onEdit={canEditTask(task) ? setEditingTask : undefined}
     />
