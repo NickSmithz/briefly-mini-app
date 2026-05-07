@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Brain, ClipboardPaste } from "lucide-react";
+import { useRef, useState } from "react";
+import { Brain, ClipboardPaste, KeyboardOff } from "lucide-react";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Select } from "../components/Select";
@@ -18,29 +18,58 @@ export function ImportPlanScreen() {
   const setSelectedProject = useAppStore((state) => state.setSelectedProject);
   const parseImportText = useAppStore((state) => state.parseImportText);
   const setActiveTab = useAppStore((state) => state.setActiveTab);
+  const planTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
   const projectId = selectedProjectId ?? projects[0]?.id ?? "";
+
   return (
     <div className="space-y-4">
       <Card>
         <h2 className="text-xl font-black">Импорт контент-плана</h2>
         <p className="mt-1 text-sm text-slate-400">Вставьте сообщение из чата, Briefly разложит его на публикации.</p>
       </Card>
+
       <label className="block space-y-2 text-sm text-slate-300">
         <span>Проект</span>
         <Select value={projectId} onChange={(e) => setSelectedProject(e.target.value)}>
           {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </Select>
       </label>
-      <Textarea rows={10} value={text} onChange={(e) => setText(e.target.value)} placeholder="5.05 | reels | Про ретинол | заметки" />
+
+      <div>
+        <Textarea
+          ref={planTextareaRef}
+          rows={10}
+          value={text}
+          enterKeyHint="enter"
+          onChange={(e) => setText(e.target.value)}
+          placeholder="5.05 | reels | Про ретинол | заметки"
+        />
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+          <span>Каждая строка — отдельная публикация</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-8 px-2 text-xs text-slate-400 hover:text-white"
+            onClick={() => planTextareaRef.current?.blur()}
+          >
+            <KeyboardOff size={15} />
+            Скрыть клавиатуру
+          </Button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={() => setText(example)}><ClipboardPaste size={17} />Вставить пример</Button>
         <Button variant="ghost" onClick={() => setText("")}>Очистить</Button>
       </div>
+
       <Card className="text-sm text-slate-300">
         <b>Формат:</b>
         <p className="mt-2 text-slate-400">date | format | title | notes<br />или date - format - title - notes</p>
       </Card>
+
       <Card className="border-violet-500/20 bg-violet-500/10">
         <div className="flex gap-3">
           <Brain className="text-violet-200" />
@@ -50,6 +79,7 @@ export function ImportPlanScreen() {
           </div>
         </div>
       </Card>
+
       <Button fullWidth size="lg" disabled={!projectId || !text.trim()} onClick={() => { parseImportText(projectId, text); setActiveTab("import"); }}>Разобрать план</Button>
     </div>
   );
