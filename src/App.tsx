@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { AppShell } from "./components/AppShell";
 import { useAppStore } from "./store/useAppStore";
+import { useBackendStore } from "./store/useBackendStore";
 import { initTelegram } from "./utils/telegram";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -17,11 +18,15 @@ export function App() {
   const activeTab = useAppStore((state) => state.activeTab);
   const activeImportDraftId = useAppStore((state) => state.activeImportDraftId);
   const initializeApp = useAppStore((state) => state.initializeApp);
+  const isBackendMode = useBackendStore((state) => state.isBackendMode);
+  const isAuthenticated = useBackendStore((state) => state.isAuthenticated);
+  const loadWorkspace = useBackendStore((state) => state.loadWorkspace);
 
   useEffect(() => {
     initTelegram();
     initializeApp();
-  }, [initializeApp]);
+    if (isBackendMode && isAuthenticated) void loadWorkspace();
+  }, [initializeApp, isAuthenticated, isBackendMode, loadWorkspace]);
 
   if (!onboardingCompleted) return <OnboardingScreen />;
 

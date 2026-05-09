@@ -154,6 +154,7 @@ export type TaskGenerationMode = "none" | "minimal" | "full";
 export type AppTab = "home" | "projects" | "import" | "calendar" | "tasks" | "team" | "settings";
 
 export type TelegramWebApp = {
+  initData?: string;
   initDataUnsafe?: { user?: TelegramUser };
   ready: () => void;
   expand: () => void;

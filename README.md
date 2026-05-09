@@ -16,36 +16,76 @@ npm run build
 npm run preview
 ```
 
-## Lint
+## Backend with Supabase
+
+1. Создайте Supabase project.
+2. Возьмите pooled connection string для `DATABASE_URL`.
+3. Возьмите direct connection string для `DIRECT_URL`.
+4. Создайте `.env.local`:
 
 ```bash
-npm run lint
+DATABASE_URL="..."
+DIRECT_URL="..."
+TELEGRAM_BOT_TOKEN="..."
+JWT_SECRET="..."
 ```
 
-## Как подключить к Telegram Mini App
+5. Установите зависимости:
+
+```bash
+npm.cmd install
+```
+
+6. Prisma:
+
+```bash
+npm.cmd exec prisma generate
+npm.cmd exec prisma migrate dev -- --name init
+```
+
+7. Запуск:
+
+```bash
+npm.cmd run dev
+```
+
+8. Проверка API:
+
+```text
+http://localhost:5173/api/health
+```
+
+9. Vercel env variables:
+
+```text
+DATABASE_URL
+DIRECT_URL
+TELEGRAM_BOT_TOKEN
+JWT_SECRET
+```
+
+## Telegram Mini App
 
 1. Создать бота через BotFather.
 2. Задеплоить приложение на HTTPS-хостинг, например Vercel.
 3. Указать Web App URL в BotFather.
 4. Открыть Mini App из Telegram.
 
-## Mock mode
+## Demo Mode
 
-Если открыть приложение в браузере, используется mock Telegram user:
+Если backend sync выключен, приложение продолжает работать как frontend-only MVP через `localStorage`.
 
-```ts
-{ id: 1, first_name: "Briefly", username: "demo_user" }
-```
+## Team Sync Mode
 
-## Ограничения MVP
+В Settings можно включить Team sync mode и войти через Telegram. В development без `initData` используется mock user. В production backend принимает только валидный Telegram Mini App `initData`.
 
-- нет backend;
-- данные хранятся в localStorage;
-- нет реального совместного доступа;
-- нет AI;
-- нет bot reminders;
-- нет реальной оплаты.
+## Ограничения текущего backend MVP
 
-## Будущая архитектура
+- local/demo mode сохранён;
+- AI import и AI Chat не реализованы;
+- платежи не реализованы;
+- Telegram bot notifications не реализованы;
+- Supabase Storage и вложения к задачам не реализованы;
+- сложные права доступа не добавлены.
 
-MVP уже содержит Team, Subscription, ImportDraft, ImportSource, ContentItem и Task, чтобы позже добавить backend, AI import и оплату без переписывания основного flow.
+Подробнее: [BACKEND_MVP.md](./BACKEND_MVP.md).
