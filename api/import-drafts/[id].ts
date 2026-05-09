@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../_lib/prisma";
 import { allowMethods, error, getQueryString, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
@@ -13,7 +14,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const { team } = await requireUser(req);
     const existing = await prisma.importDraft.findFirst({ where: { id, teamId: team.id } });
     if (!existing) return error(res, "Import draft not found", 404);
-    json(res, await prisma.importDraft.update({ where: { id }, data: patchSchema.parse(readJson(req)) }));
+    const patch = patchSchema.parse(readJson(req));
+    const data: Prisma.ImportDraftUpdateInput = {};
+    if (patch.rows !== undefined) data.rows = patch.rows as Prisma.InputJsonValue;
+    if (patch.status !== undefined) data.status = patch.status;
+    json(res, await prisma.importDraft.update({ where: { id }, data }));
   } catch (cause) {
     error(res, cause instanceof Error ? cause.message : "Import draft update failed", 400);
   }

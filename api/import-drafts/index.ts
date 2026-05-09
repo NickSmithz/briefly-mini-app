@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../_lib/prisma";
 import { allowMethods, error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
@@ -11,7 +12,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const { team } = await requireUser(req);
     const body = bodySchema.parse(readJson(req));
     await requireProject(team.id, body.projectId);
-    json(res, await prisma.importDraft.create({ data: { ...body, teamId: team.id } }), 201);
+    const data: Prisma.ImportDraftUncheckedCreateInput = {
+      teamId: team.id,
+      projectId: body.projectId,
+      source: body.source,
+      rawText: body.rawText,
+      rows: body.rows as Prisma.InputJsonValue,
+    };
+    json(res, await prisma.importDraft.create({ data }), 201);
   } catch (cause) {
     error(res, cause instanceof Error ? cause.message : "Import draft failed", 400);
   }
