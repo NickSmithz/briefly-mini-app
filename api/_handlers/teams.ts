@@ -1,9 +1,8 @@
-import { allowMethods, error, json, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { requireUser } from "../_lib/auth";
 import { prisma } from "../_lib/prisma";
+import { error, json, type ApiRequest, type ApiResponse } from "../_lib/http";
+import { requireUser } from "../_lib/auth";
 
-export default async function handler(req: ApiRequest, res: ApiResponse) {
-  if (!allowMethods(req, res, ["GET"])) return;
+export async function getCurrentTeam(req: ApiRequest, res: ApiResponse) {
   try {
     const { user, team } = await requireUser(req);
     const members = await prisma.teamMember.findMany({ where: { teamId: team.id }, orderBy: { createdAt: "asc" } });

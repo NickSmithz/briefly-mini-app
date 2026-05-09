@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { prisma } from "../_lib/prisma";
-import { allowMethods, error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
+import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
 import { signToken } from "../_lib/auth";
 import { parseTelegramUser, verifyTelegramInitData } from "../_lib/telegram";
 
 const bodySchema = z.object({ initData: z.string().optional().default("") });
 
-export default async function handler(req: ApiRequest, res: ApiResponse) {
-  if (!allowMethods(req, res, ["POST"])) return;
+export async function authTelegram(req: ApiRequest, res: ApiResponse) {
   try {
     const { initData } = bodySchema.parse(readJson(req));
     const botToken = process.env.TELEGRAM_BOT_TOKEN;

@@ -1,19 +1,24 @@
 import { z } from "zod";
 import { prisma } from "../_lib/prisma";
-import { allowMethods, error, getQueryString, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
+import { error, getQueryString, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
 import { requireMember, requireProject, requireUser } from "../_lib/auth";
 import { roleSchema } from "../_lib/validation";
 
 const bodySchema = z.object({ projectId: z.string().min(1), role: roleSchema, memberId: z.string().min(1) });
 
-export default async function handler(req: ApiRequest, res: ApiResponse) {
-  if (!allowMethods(req, res, ["GET", "POST"])) return;
+export async function listRoleMappings(req: ApiRequest, res: ApiResponse) {
   try {
     const { team } = await requireUser(req);
-    if (req.method === "GET") {
-      const projectId = getQueryString(req, "projectId");
-      return json(res, await prisma.roleMapping.findMany({ where: { teamId: team.id, ...(projectId ? { projectId } : {}) } }));
-    }
+    const projectId = getQueryString(req, "projectId");
+    json(res, await prisma.roleMapping.findMany({ where: { teamId: team.id, ...(projectId ? { projectId } : {}) } }));
+  } catch (cause) {
+    error(res, cause instanceof Error ? cause.message : "Role mappings request failed", 400);
+  }
+}
+
+export async function setRoleMapping(req: ApiRequest, res: ApiResponse) {
+  try {
+    const { team } = await requireUser(req);
     const body = bodySchema.parse(readJson(req));
     await requireProject(team.id, body.projectId);
     await requireMember(team.id, body.memberId);
