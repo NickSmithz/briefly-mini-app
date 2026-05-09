@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
-import { prisma } from "./prisma";
-import type { ApiRequest } from "./http";
+import { prisma } from "./prisma.js";
+import type { ApiRequest } from "./http.js";
 
 type TokenPayload = {
   userId: string;

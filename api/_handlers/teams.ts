@@ -1,6 +1,6 @@
-import { prisma } from "../_lib/prisma";
-import { error, json, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { requireUser } from "../_lib/auth";
+import { prisma } from "../_lib/prisma.js";
+import { error, json, type ApiRequest, type ApiResponse } from "../_lib/http.js";
+import { requireUser } from "../_lib/auth.js";
 
 export async function getCurrentTeam(req: ApiRequest, res: ApiResponse) {
   try {

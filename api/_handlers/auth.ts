@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { prisma } from "../_lib/prisma";
-import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { signToken } from "../_lib/auth";
-import { parseTelegramUser, verifyTelegramInitData } from "../_lib/telegram";
+import { prisma } from "../_lib/prisma.js";
+import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
+import { signToken } from "../_lib/auth.js";
+import { parseTelegramUser, verifyTelegramInitData } from "../_lib/telegram.js";
 
 const bodySchema = z.object({ initData: z.string().optional().default("") });
 

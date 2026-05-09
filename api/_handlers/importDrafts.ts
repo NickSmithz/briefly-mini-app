@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { prisma } from "../_lib/prisma";
-import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { requireProject, requireUser } from "../_lib/auth";
+import { prisma } from "../_lib/prisma.js";
+import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
+import { requireProject, requireUser } from "../_lib/auth.js";
 
 const bodySchema = z.object({ projectId: z.string().min(1), source: z.string().min(1), rawText: z.string(), rows: z.unknown() });
 const patchSchema = z.object({ rows: z.unknown().optional(), status: z.enum(["draft", "confirmed", "discarded"]).optional() });

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { prisma } from "../_lib/prisma";
-import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { requireUser } from "../_lib/auth";
+import { prisma } from "../_lib/prisma.js";
+import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
+import { requireUser } from "../_lib/auth.js";
 
 const memberSchema = z.object({ name: z.string().trim().min(1), username: z.string().optional(), roleLabel: z.string().optional(), avatarEmoji: z.string().optional() });
 const patchSchema = memberSchema.partial();

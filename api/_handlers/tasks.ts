@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { prisma } from "../_lib/prisma";
-import { error, getQueryString, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { requireMember, requireProject, requireUser } from "../_lib/auth";
-import { dateValue, prioritySchema, roleSchema, taskStatusSchema } from "../_lib/validation";
+import { prisma } from "../_lib/prisma.js";
+import { error, getQueryString, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
+import { requireMember, requireProject, requireUser } from "../_lib/auth.js";
+import { dateValue, prioritySchema, roleSchema, taskStatusSchema } from "../_lib/validation.js";
 
 const taskSchema = z.object({
   projectId: z.string().min(1),

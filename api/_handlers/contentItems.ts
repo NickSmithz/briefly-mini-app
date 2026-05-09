@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { prisma } from "../_lib/prisma";
-import { error, getQueryString, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { requireProject, requireUser } from "../_lib/auth";
-import { contentStatusSchema, dateValue, formatSchema } from "../_lib/validation";
+import { prisma } from "../_lib/prisma.js";
+import { error, getQueryString, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
+import { requireProject, requireUser } from "../_lib/auth.js";
+import { contentStatusSchema, dateValue, formatSchema } from "../_lib/validation.js";
 
 const itemSchema = z.object({
   title: z.string().trim().min(1),

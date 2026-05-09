@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { prisma } from "../_lib/prisma";
-import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http";
-import { requireUser } from "../_lib/auth";
+import { prisma } from "../_lib/prisma.js";
+import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
+import { requireUser } from "../_lib/auth.js";
 
 const createSchema = z.object({ name: z.string().trim().min(1), description: z.string().optional(), color: z.string().optional() });
 const patchSchema = z.object({ name: z.string().trim().min(1).optional(), description: z.string().optional(), color: z.string().optional(), archived: z.boolean().optional() });
