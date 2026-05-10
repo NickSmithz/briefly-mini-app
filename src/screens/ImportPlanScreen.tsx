@@ -4,7 +4,7 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import { Textarea } from "../components/Textarea";
-import { useAppStore } from "../store/useAppStore";
+import { useBrieflyData } from "../store/useBrieflyData";
 
 const example = `5.05 | reels | Про ретинол | Ксения Андреевна, точечное/массовое нанесение
 6.05 | reels | Тулиевый лазер |
@@ -13,13 +13,10 @@ const example = `5.05 | reels | Про ретинол | Ксения Андре�
 9.05 | reels | Юмор про фототерапию | Ольга Алексеевна`;
 
 export function ImportPlanScreen() {
-  const projects = useAppStore((state) => state.projects.filter((p) => !p.archived));
-  const selectedProjectId = useAppStore((state) => state.selectedProjectId);
-  const setSelectedProject = useAppStore((state) => state.setSelectedProject);
-  const parseImportText = useAppStore((state) => state.parseImportText);
-  const setActiveTab = useAppStore((state) => state.setActiveTab);
+  const data = useBrieflyData();
+  const projects = data.projects.filter((project) => project.teamId === data.activeTeamId && !project.archived);
   const [text, setText] = useState("");
-  const projectId = selectedProjectId ?? projects[0]?.id ?? "";
+  const projectId = data.selectedProjectId ?? projects[0]?.id ?? "";
 
   return (
     <div className="space-y-4">
@@ -30,7 +27,7 @@ export function ImportPlanScreen() {
 
       <label className="block space-y-2 text-sm text-slate-300">
         <span>Проект</span>
-        <Select value={projectId} onChange={(e) => setSelectedProject(e.target.value)}>
+        <Select value={projectId} onChange={(e) => data.actions.setSelectedProject(e.target.value)}>
           {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </Select>
       </label>
@@ -67,7 +64,7 @@ export function ImportPlanScreen() {
         </div>
       </Card>
 
-      <Button fullWidth size="lg" disabled={!projectId || !text.trim()} onClick={() => { parseImportText(projectId, text); setActiveTab("import"); }}>Разобрать план</Button>
+      <Button fullWidth size="lg" disabled={!projectId || !text.trim()} onClick={() => { data.actions.parseImportText(projectId, text); data.actions.setActiveTab("import"); }}>Разобрать план</Button>
     </div>
   );
 }

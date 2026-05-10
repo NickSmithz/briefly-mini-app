@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { RoleKey, Task, TaskStatus } from "../types";
-import { useAppStore } from "../store/useAppStore";
+import { useBrieflyData } from "../store/useBrieflyData";
 import { createId } from "../utils/ids";
 import { formatDateShort } from "../utils/dates";
 import { getFormatLabel } from "../utils/status";
@@ -55,10 +55,9 @@ const priorityOptions: { value: Task["priority"]; label: string }[] = [
 ];
 
 export function TaskCreateModal({ isOpen, onClose, defaultProjectId }: TaskCreateModalProps) {
-  const state = useAppStore();
-  const addTask = useAppStore((store) => store.addTask);
-  const activeTeamId = state.activeTeamId;
-  const projects = state.projects.filter((project) => project.teamId === activeTeamId && !project.archived);
+  const data = useBrieflyData();
+  const activeTeamId = data.activeTeamId;
+  const projects = data.projects.filter((project) => project.teamId === activeTeamId && !project.archived);
   const fallbackProjectId = defaultProjectId || projects[0]?.id || "";
   const [form, setForm] = useState<TaskCreateForm>({
     projectId: fallbackProjectId,
@@ -90,14 +89,14 @@ export function TaskCreateModal({ isOpen, onClose, defaultProjectId }: TaskCreat
   }, [fallbackProjectId, isOpen]);
 
   const selectedProject = projects.find((project) => project.id === form.projectId);
-  const members = state.members.filter((member) => member.teamId === activeTeamId);
-  const contentItems = state.contentItems.filter((item) => item.projectId === form.projectId);
+  const members = data.members.filter((member) => member.teamId === activeTeamId);
+  const contentItems = data.contentItems.filter((item) => item.projectId === form.projectId);
 
   const mappedMember = useMemo(() => {
     if (!form.role || !form.projectId) return null;
-    const mapping = state.roleMappings.find((item) => item.projectId === form.projectId && item.role === form.role);
+    const mapping = data.roleMappings.find((item) => item.projectId === form.projectId && item.role === form.role);
     return members.find((member) => member.id === mapping?.memberId) ?? null;
-  }, [form.projectId, form.role, members, state.roleMappings]);
+  }, [data.roleMappings, form.projectId, form.role, members]);
 
   if (!isOpen) return null;
 
@@ -134,8 +133,8 @@ export function TaskCreateModal({ isOpen, onClose, defaultProjectId }: TaskCreat
       createdAt: now,
       updatedAt: now,
     };
-    addTask(task);
-    useAppStore.setState({ lastSuccessMessage: "Задача создана", selectedProjectId: form.projectId });
+    data.actions.addTask(task);
+    data.actions.setSelectedProject(form.projectId);
     hapticFeedback("success");
     onClose();
   };

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FocusEvent } from "react";
 import type { RoleKey, RoleMapping, Task, TaskStatus, TeamMember } from "../types";
-import { useAppStore } from "../store/useAppStore";
+import { useBrieflyData } from "../store/useBrieflyData";
 import { formatDateShort } from "../utils/dates";
 import { getFormatLabel } from "../utils/status";
 import { hapticFeedback } from "../utils/telegram";
@@ -66,8 +66,8 @@ function isEditableField(target: EventTarget | null) {
 }
 
 export function TaskEditModal({ task, members, roleMappings = [], onSave, onCancel, onDelete }: TaskEditModalProps) {
-  const contentItem = useAppStore((state) => state.contentItems.find((item) => item.id === task.contentItemId));
-  const updateContentItem = useAppStore((state) => state.updateContentItem);
+  const data = useBrieflyData();
+  const contentItem = data.contentItems.find((item) => item.id === task.contentItemId);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isEditingText, setIsEditingText] = useState(false);
   const [form, setForm] = useState<TaskForm>({
@@ -141,7 +141,7 @@ export function TaskEditModal({ task, members, roleMappings = [], onSave, onCanc
     });
 
     if (contentItem) {
-      updateContentItem(contentItem.id, {
+      data.actions.updateContentItem(contentItem.id, {
         title: contentTitle,
         topic: contentForm.topic.trim() || undefined,
         expert: contentForm.expert.trim() || undefined,

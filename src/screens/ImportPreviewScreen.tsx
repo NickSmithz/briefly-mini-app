@@ -9,22 +9,23 @@ import { Textarea } from "../components/Textarea";
 import { formatOptions } from "../data/formatOptions";
 import type { TaskGenerationMode } from "../types";
 import { useAppStore } from "../store/useAppStore";
+import { useBrieflyData } from "../store/useBrieflyData";
 import { getImportSourceLabel } from "../utils/status";
 import { defaultTemplates } from "../data/defaultTemplates";
 import { formatDateShort } from "../utils/dates";
 
 export function ImportPreviewScreen() {
   const state = useAppStore();
+  const data = useBrieflyData();
   const draft = state.importDrafts.find((item) => item.id === state.activeImportDraftId && item.status === "draft");
   const updateRow = useAppStore((s) => s.updateImportDraftRow);
   const deleteRow = useAppStore((s) => s.deleteImportDraftRow);
   const clearRows = useAppStore((s) => s.clearImportDraftRows);
   const addRow = useAppStore((s) => s.addImportDraftRow);
-  const createPlan = useAppStore((s) => s.createContentPlanFromDraft);
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const [mode, setMode] = useState<TaskGenerationMode>("minimal");
   if (!draft) return <EmptyState icon={<Upload />} title="Нет активного preview" description="Разберите контент-план, чтобы проверить строки перед созданием." action={<Button onClick={() => setActiveTab("import")}>Импортировать план</Button>} />;
-  const project = state.projects.find((item) => item.id === draft.projectId);
+  const project = data.projects.find((item) => item.id === draft.projectId);
   const taskCount = mode === "none" ? 0 : draft.rows.reduce((sum, row) => sum + (defaultTemplates.find((template) => template.format === row.format)?.[mode === "minimal" ? "minimalTasks" : "fullTasks"].length ?? 0), 0);
   const canCreate = draft.rows.length > 0 && draft.rows.every((row) => row.isValid);
   return (
@@ -72,7 +73,7 @@ export function ImportPreviewScreen() {
           <option value="full">Подробные задачи</option>
         </Select>
         <div className="rounded-2xl bg-slate-950 p-3 text-sm text-slate-300">Будет создано: {draft.rows.length} публикаций, примерно {taskCount} задач</div>
-        <Button fullWidth size="lg" disabled={!canCreate} onClick={() => createPlan(mode)}>Создать контент-план</Button>
+        <Button fullWidth size="lg" disabled={!canCreate} onClick={() => data.actions.createContentPlanFromDraft(mode)}>Создать контент-план</Button>
         {!canCreate && <p className="text-xs text-rose-200">Заполните дату и название во всех строках.</p>}
       </Card>
     </div>

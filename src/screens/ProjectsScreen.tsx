@@ -1,41 +1,97 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Database, Plus } from "lucide-react";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { EmptyState } from "../components/EmptyState";
 import { Input } from "../components/Input";
 import { Modal } from "../components/Modal";
 import { PlanLimitBanner } from "../components/PlanLimitBanner";
 import { ProjectCard } from "../components/ProjectCard";
-import { useAppStore, getUsageForActiveTeam, selectActiveSubscription } from "../store/useAppStore";
+import { useBrieflyData } from "../store/useBrieflyData";
 import { ProjectDetailScreen } from "./ProjectDetailScreen";
 
 export function ProjectsScreen() {
-  const state = useAppStore();
-  const addProject = useAppStore((s) => s.addProject);
-  const setSelectedProject = useAppStore((s) => s.setSelectedProject);
+  const data = useBrieflyData();
   const [detailOpen, setDetailOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const projects = state.projects.filter((project) => !project.archived);
-  const sub = selectActiveSubscription(state);
-  const usage = getUsageForActiveTeam(state);
-  if (detailOpen && state.selectedProjectId) {
+  const projects = data.projects.filter((project) => !project.archived);
+
+  if (data.isBackendMode && !data.isBackendReady) {
+    return (
+      <EmptyState
+        icon={<Database />}
+        title="Team sync mode не подключён"
+        description="Войдите через Telegram в настройках, чтобы видеть общие проекты команды."
+        action={<Button onClick={() => data.actions.setActiveTab("settings")}>Открыть настройки</Button>}
+      />
+    );
+  }
+
+  if (detailOpen && data.selectedProjectId) {
     return <ProjectDetailScreen onBack={() => setDetailOpen(false)} />;
   }
+
+  const createProject = () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    data.actions.addProject({ name: trimmedName, description: description.trim(), color: "indigo" });
+    setName("");
+    setDescription("");
+    setOpen(false);
+  };
+
   return (
     <div className="space-y-4">
-      <Button fullWidth onClick={() => setOpen(true)}><Plus size={18} />Добавить проект</Button>
-      {sub && <PlanLimitBanner label="Проекты" used={usage.projects} limit={sub.projectsLimit} />}
-      {projects.map((project) => {
-        const content = state.contentItems.filter((item) => item.projectId === project.id);
-        return <ProjectCard key={project.id} project={project} contentCount={content.length} tasks={state.tasks.filter((task) => task.projectId === project.id)} nextDate={content[0]?.publishDate} onOpen={() => { setSelectedProject(project.id); setDetailOpen(true); }} />;
-      })}
+      <div className="flex items-center justify-between gap-3">
+        <Badge color={data.mode === "backend" ? "emerald" : "violet"}>{data.mode === "backend" ? "Team sync" : "Demo mode"}</Badge>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <Plus size={18} />
+          Добавить проект
+        </Button>
+      </div>
+
+      {data.subscription && <PlanLimitBanner label="Проекты" used={data.usage.projects} limit={data.subscription.projectsLimit} />}
+
+      {projects.length ? (
+        projects.map((project) => {
+          const content = data.contentItems.filter((item) => item.projectId === project.id);
+          return (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              contentCount={content.length}
+              tasks={data.tasks.filter((task) => task.projectId === project.id)}
+              nextDate={content[0]?.publishDate}
+              onOpen={() => {
+                data.actions.setSelectedProject(project.id);
+                setDetailOpen(true);
+              }}
+            />
+          );
+        })
+      ) : (
+        <EmptyState
+          icon={<Plus />}
+          title={data.mode === "backend" ? "В этой команде пока нет проектов" : "Нет проектов"}
+          description={
+            data.mode === "backend"
+              ? "Создайте первый проект или присоединитесь к команде по приглашению."
+              : "Добавьте проект, чтобы импортировать контент-план."
+          }
+          action={<Button onClick={() => setOpen(true)}>Создать проект</Button>}
+        />
+      )}
+
       {open && (
         <Modal title="Новый проект" onClose={() => setOpen(false)}>
           <div className="space-y-3">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" />
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" />
-            <Button fullWidth disabled={!name.trim()} onClick={() => { addProject({ name, description, color: "indigo" }); setName(""); setDescription(""); setOpen(false); }}>Создать</Button>
+            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Название" />
+            <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Описание" />
+            <Button fullWidth disabled={!name.trim()} onClick={createProject}>
+              Создать
+            </Button>
           </div>
         </Modal>
       )}
