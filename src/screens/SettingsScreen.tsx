@@ -27,10 +27,15 @@ function yesNo(value: boolean) {
   return value ? "есть" : "нет";
 }
 
-function getAuthStatus(params: { hasToken: boolean; hasInitData: boolean; hasBackendIdentity: boolean }) {
+function getAuthStatus(params: { hasToken: boolean; hasInitData: boolean; hasBackendIdentity: boolean; debugResult: DebugAuthResponse | null }) {
   if (!params.hasToken) return "token missing";
+  if (params.debugResult?.ok) return "connected";
+  if (params.debugResult && !params.debugResult.ok) {
+    if (params.debugResult.code === "TOKEN_INVALID") return "invalid token";
+    return "invalid";
+  }
   if (!params.hasInitData) return "telegram initData missing";
-  if (params.hasBackendIdentity) return "connected";
+  if (params.hasBackendIdentity) return "token exists, not verified";
   return "unknown";
 }
 
@@ -82,7 +87,7 @@ export function SettingsScreen() {
   const hasBackendToken = Boolean(backendToken);
   const hasTelegramInitData = Boolean(telegramInitData);
   const hasBackendIdentity = Boolean(backend.user && backend.team);
-  const authStatus = getAuthStatus({ hasToken: hasBackendToken, hasInitData: hasTelegramInitData, hasBackendIdentity });
+  const authStatus = getAuthStatus({ hasToken: hasBackendToken, hasInitData: hasTelegramInitData, hasBackendIdentity, debugResult });
   const backendUserLabel = getBackendUserLabel(backend.user);
 
   const checkBackendSession = async () => {
@@ -133,8 +138,11 @@ export function SettingsScreen() {
         error: null,
       });
       await useBackendStore.getState().loadWorkspace();
-      setDiagnosticMessage("Вход обновлён");
-      setLastRequest({ status: 200 });
+      const result = await debugAuth();
+      setDebugResult(result);
+      setLastRequest({ status: 200, code: result.code, error: result.error });
+      if (result.ok) setDiagnosticMessage("Вход обновлён");
+      else setDiagnosticError(result.error || "Backend session check failed after login");
     } catch (cause) {
       const nextLastRequest = lastRequestFromError(cause, "Не удалось обновить вход через Telegram.");
       setLastRequest(nextLastRequest);
@@ -224,6 +232,7 @@ export function SettingsScreen() {
               <div>Debug auth code: {debugResult.code || "n/a"}</div>
               <div>Debug auth hasAuthorizationHeader: {String(debugResult.hasAuthorizationHeader)}</div>
               {debugResult.userId && <div>userId: {debugResult.userId}</div>}
+              {debugResult.telegramUserId && <div>telegramUserId: {debugResult.telegramUserId}</div>}
               {debugResult.teamCount !== undefined && <div>teamCount: {debugResult.teamCount}</div>}
               {debugResult.error && <div>error: {debugResult.error}</div>}
             </div>

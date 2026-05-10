@@ -2,12 +2,24 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./prisma.js";
 import type { ApiRequest } from "./http.js";
 
-type TokenPayload = {
+export type TokenPayload = {
   userId: string;
   teamId: string;
 };
 
-function getJwtSecret() {
+export class AuthError extends Error {
+  status: number;
+  code: string;
+
+  constructor(message: string, code = "UNAUTHORIZED", status = 401) {
+    super(message);
+    this.name = "AuthError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export function getJwtSecret() {
   return process.env.JWT_SECRET || (process.env.NODE_ENV !== "production" ? "dev-briefly-secret" : "");
 }
 
@@ -16,7 +28,7 @@ export function hasJwtSecret() {
 }
 
 export function signToken(payload: TokenPayload) {
-  if (!hasJwtSecret()) throw new Error("JWT_SECRET_MISSING");
+  if (!hasJwtSecret()) throw new AuthError("JWT secret is not configured", "JWT_SECRET_MISSING", 500);
   return jwt.sign(payload, getJwtSecret(), { expiresIn: "30d" });
 }
 
@@ -45,9 +57,7 @@ export function getBearerToken(req: ApiRequest | { headers?: unknown } | null | 
   return token;
 }
 
-export function verifyToken(req: ApiRequest): TokenPayload | null {
-  const token = getBearerToken(req);
-  if (!token) return null;
+export function verifyTokenValue(token: string): TokenPayload | null {
   if (!hasJwtSecret()) return null;
   try {
     return jwt.verify(token, getJwtSecret()) as TokenPayload;
@@ -56,14 +66,29 @@ export function verifyToken(req: ApiRequest): TokenPayload | null {
   }
 }
 
+export function verifyToken(req: ApiRequest): TokenPayload | null {
+  const token = getBearerToken(req);
+  if (!token) return null;
+  return verifyTokenValue(token);
+}
+
 export async function requireUser(req: ApiRequest) {
-  const payload = verifyToken(req);
-  if (!payload) throw new Error("Unauthorized");
+  const token = getBearerToken(req);
+  if (!token) throw new AuthError("Missing Authorization header", "AUTH_HEADER_MISSING");
+  if (!hasJwtSecret()) throw new AuthError("JWT secret is not configured", "JWT_SECRET_MISSING", 500);
+
+  const payload = verifyTokenValue(token);
+  if (!payload) throw new AuthError("Invalid backend token", "TOKEN_INVALID");
+  if (!payload.userId) throw new AuthError("Token payload does not contain userId", "TOKEN_PAYLOAD_INVALID");
+
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user) throw new AuthError("User not found", "USER_NOT_FOUND");
+
   const member = await prisma.teamMember.findFirst({
     where: { teamId: payload.teamId, userId: payload.userId },
     include: { user: true, team: true },
   });
-  if (!member) throw new Error("Unauthorized");
+  if (!member) throw new AuthError("No team membership found for user", "TEAM_MEMBER_NOT_FOUND");
   return { user: member.user, team: member.team, member };
 }
 

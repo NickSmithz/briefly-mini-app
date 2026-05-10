@@ -37,6 +37,7 @@ export type DebugAuthResponse = {
   ok: boolean;
   hasAuthorizationHeader: boolean;
   userId?: string;
+  telegramUserId?: string;
   teamCount?: number;
   error?: string;
   code?: string;

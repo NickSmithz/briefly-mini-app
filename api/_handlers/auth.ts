@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { prisma } from "../_lib/prisma.js";
 import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
-import { getBearerToken, hasJwtSecret, signToken, verifyToken } from "../_lib/auth.js";
+import { getBearerToken, hasJwtSecret, signToken, verifyTokenValue } from "../_lib/auth.js";
 import { parseTelegramUser, verifyTelegramInitData } from "../_lib/telegram.js";
 
 const bodySchema = z.object({ initData: z.string().optional().default("") });
@@ -81,7 +81,8 @@ export async function authTelegram(req: ApiRequest, res: ApiResponse) {
 }
 
 export async function debugAuth(req: ApiRequest, res: ApiResponse) {
-  const hasAuthorizationHeader = Boolean(getBearerToken(req));
+  const token = getBearerToken(req);
+  const hasAuthorizationHeader = Boolean(token);
 
   if (!hasAuthorizationHeader) {
     return json(res, {
@@ -101,7 +102,7 @@ export async function debugAuth(req: ApiRequest, res: ApiResponse) {
     }, 500);
   }
 
-  const payload = verifyToken(req);
+  const payload = token ? verifyTokenValue(token) : null;
   if (!payload) {
     return json(res, {
       ok: false,
@@ -111,11 +112,44 @@ export async function debugAuth(req: ApiRequest, res: ApiResponse) {
     }, 401);
   }
 
+  if (!payload.userId) {
+    return json(res, {
+      ok: false,
+      hasAuthorizationHeader: true,
+      error: "Token payload does not contain userId",
+      code: "TOKEN_PAYLOAD_INVALID",
+    }, 401);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user) {
+    return json(res, {
+      ok: false,
+      hasAuthorizationHeader: true,
+      error: "User not found",
+      code: "USER_NOT_FOUND",
+      userId: payload.userId,
+    }, 401);
+  }
+
   const teamCount = await prisma.teamMember.count({ where: { userId: payload.userId } });
+  if (teamCount === 0) {
+    return json(res, {
+      ok: false,
+      hasAuthorizationHeader: true,
+      error: "No team membership found for user",
+      code: "TEAM_MEMBER_NOT_FOUND",
+      userId: payload.userId,
+      teamCount,
+    }, 401);
+  }
+
   return json(res, {
     ok: true,
     hasAuthorizationHeader: true,
+    code: "OK",
     userId: payload.userId,
+    telegramUserId: user.telegramUserId,
     teamCount,
   });
 }

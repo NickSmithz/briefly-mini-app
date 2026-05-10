@@ -127,6 +127,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(404).json({ error: "API route not found", method, pathname, url: req.url });
   } catch (cause) {
     console.error("API fatal error", cause);
+    if (cause && typeof cause === "object" && "name" in cause && cause.name === "AuthError") {
+      const authError = cause as { status?: number; message?: string; code?: string };
+      return res.status(authError.status ?? 401).json({
+        error: authError.message ?? "Unauthorized",
+        code: authError.code ?? "UNAUTHORIZED",
+      });
+    }
     return res.status(500).json({
       error: "Internal server error",
       message: cause instanceof Error ? cause.message : "Unknown error",
