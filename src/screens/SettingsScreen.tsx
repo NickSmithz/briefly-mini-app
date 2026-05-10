@@ -3,11 +3,25 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { SubscriptionCard } from "../components/SubscriptionCard";
-import { authTelegram, debugAuth, getBackendToken, setBackendToken, type DebugAuthResponse } from "../api/client";
+import {
+  BackendApiError,
+  authTelegram,
+  clearBackendToken,
+  debugAuth,
+  getBackendToken,
+  setBackendToken,
+  type DebugAuthResponse,
+} from "../api/client";
 import { useAppStore } from "../store/useAppStore";
 import { useBackendStore } from "../store/useBackendStore";
 import { useBrieflyData } from "../store/useBrieflyData";
 import { getTelegramWebApp } from "../utils/telegram";
+
+type LastRequestInfo = {
+  status?: number;
+  code?: string;
+  error?: string;
+};
 
 function yesNo(value: boolean) {
   return value ? "есть" : "нет";
@@ -18,6 +32,34 @@ function getAuthStatus(params: { hasToken: boolean; hasInitData: boolean; hasBac
   if (!params.hasInitData) return "telegram initData missing";
   if (params.hasBackendIdentity) return "connected";
   return "unknown";
+}
+
+function getBackendUserLabel(user: ReturnType<typeof useBackendStore.getState>["user"]) {
+  if (!user) return "не загружен";
+  return `${user.firstName || ""}${user.username ? ` @${user.username}` : ""}`.trim() || "загружен";
+}
+
+function debugResultFromError(cause: unknown): DebugAuthResponse | null {
+  if (!(cause instanceof BackendApiError) || !cause.payload || cause.payload.hasAuthorizationHeader === undefined) return null;
+  return {
+    ok: Boolean(cause.payload.ok),
+    hasAuthorizationHeader: Boolean(cause.payload.hasAuthorizationHeader),
+    userId: cause.payload.userId,
+    teamCount: cause.payload.teamCount,
+    error: cause.payload.error || cause.payload.message,
+    code: cause.payload.code,
+  };
+}
+
+function lastRequestFromError(cause: unknown, fallback: string): LastRequestInfo {
+  if (cause instanceof BackendApiError) {
+    return {
+      status: cause.status,
+      code: cause.code,
+      error: cause.message,
+    };
+  }
+  return { error: cause instanceof Error ? cause.message : fallback };
 }
 
 export function SettingsScreen() {
@@ -31,6 +73,7 @@ export function SettingsScreen() {
   const [debugResult, setDebugResult] = useState<DebugAuthResponse | null>(null);
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
   const [diagnosticError, setDiagnosticError] = useState<string | null>(null);
+  const [lastRequest, setLastRequest] = useState<LastRequestInfo | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [isRefreshingLogin, setIsRefreshingLogin] = useState(false);
 
@@ -40,7 +83,7 @@ export function SettingsScreen() {
   const hasTelegramInitData = Boolean(telegramInitData);
   const hasBackendIdentity = Boolean(backend.user && backend.team);
   const authStatus = getAuthStatus({ hasToken: hasBackendToken, hasInitData: hasTelegramInitData, hasBackendIdentity });
-  const backendUserLabel = backend.user ? `${backend.user.firstName || ""}${backend.user.username ? ` @${backend.user.username}` : ""}`.trim() || "загружен" : "не загружен";
+  const backendUserLabel = getBackendUserLabel(backend.user);
 
   const checkBackendSession = async () => {
     setIsCheckingSession(true);
@@ -49,10 +92,13 @@ export function SettingsScreen() {
     try {
       const result = await debugAuth();
       setDebugResult(result);
+      setLastRequest({ status: 200, code: result.code, error: result.error });
       if (!result.ok) setDiagnosticError(result.error || "Backend session check failed");
     } catch (cause) {
-      setDebugResult(null);
-      setDiagnosticError(cause instanceof Error ? cause.message : "Backend session check failed");
+      setDebugResult(debugResultFromError(cause));
+      const nextLastRequest = lastRequestFromError(cause, "Backend session check failed");
+      setLastRequest(nextLastRequest);
+      setDiagnosticError(nextLastRequest.error || "Backend session check failed");
     } finally {
       setIsCheckingSession(false);
     }
@@ -66,10 +112,16 @@ export function SettingsScreen() {
     try {
       const initData = getTelegramWebApp()?.initData ?? "";
       if (!initData) {
-        setDiagnosticError("Telegram initData не найден. Откройте приложение внутри Telegram.");
+        const message = "Telegram initData не найден. Откройте приложение внутри Telegram.";
+        setDiagnosticError(message);
+        setLastRequest({ code: "TELEGRAM_INIT_DATA_MISSING", error: message });
         return;
       }
+
       backend.enableBackendMode();
+      clearBackendToken();
+      useBackendStore.setState({ token: null, isAuthenticated: false, error: null });
+
       const response = await authTelegram(initData);
       setBackendToken(response.token);
       useBackendStore.setState({
@@ -82,10 +134,12 @@ export function SettingsScreen() {
       });
       await useBackendStore.getState().loadWorkspace();
       setDiagnosticMessage("Вход обновлён");
+      setLastRequest({ status: 200 });
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Не удалось обновить вход через Telegram.";
-      setDiagnosticError(message);
-      useBackendStore.setState({ error: message });
+      const nextLastRequest = lastRequestFromError(cause, "Не удалось обновить вход через Telegram.");
+      setLastRequest(nextLastRequest);
+      setDiagnosticError(nextLastRequest.error || "Не удалось обновить вход через Telegram.");
+      useBackendStore.setState({ error: nextLastRequest.error || "Не удалось обновить вход через Telegram." });
     } finally {
       setIsRefreshingLogin(false);
     }
@@ -158,13 +212,17 @@ export function SettingsScreen() {
             <div>Backend user: {backendUserLabel}</div>
             <div>Backend team: {backend.team?.name || "не загружена"}</div>
             <div>Auth status: {authStatus}</div>
+            <div>Last request status: {lastRequest?.status ?? "n/a"}</div>
+            <div>Last request code: {lastRequest?.code ?? "n/a"}</div>
+            <div>Last request error: {lastRequest?.error ?? "n/a"}</div>
             {backend.error && <div className="text-rose-200">Last backend error: {backend.error}</div>}
           </div>
 
           {debugResult && (
             <div className={`rounded-2xl p-3 text-sm ${debugResult.ok ? "bg-emerald-500/10 text-emerald-100" : "bg-rose-500/10 text-rose-100"}`}>
               <div>Debug auth: {debugResult.ok ? "ok" : "error"}</div>
-              <div>hasAuthorizationHeader: {String(debugResult.hasAuthorizationHeader)}</div>
+              <div>Debug auth code: {debugResult.code || "n/a"}</div>
+              <div>Debug auth hasAuthorizationHeader: {String(debugResult.hasAuthorizationHeader)}</div>
               {debugResult.userId && <div>userId: {debugResult.userId}</div>}
               {debugResult.teamCount !== undefined && <div>teamCount: {debugResult.teamCount}</div>}
               {debugResult.error && <div>error: {debugResult.error}</div>}

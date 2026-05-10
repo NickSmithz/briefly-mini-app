@@ -86,7 +86,11 @@ export const useBackendStore = create<BackendState>()((set, get) => ({
     set({ isLoading: true, error: null, isBackendMode: true });
     setBackendModeEnabled(true);
     try {
-      const response = await api.authTelegram(getTelegramWebApp()?.initData ?? "");
+      const initData = getTelegramWebApp()?.initData ?? "";
+      if (!initData && import.meta.env.PROD) throw new Error("Telegram initData не найден. Откройте приложение внутри Telegram.");
+      api.clearBackendToken();
+      set({ token: null, isAuthenticated: false });
+      const response = await api.authTelegram(initData);
       api.setBackendToken(response.token);
       set({ token: response.token, isAuthenticated: true, user: response.user, team: response.team });
       await get().loadWorkspace();

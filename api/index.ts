@@ -49,6 +49,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           hasDirectUrl: Boolean(process.env.DIRECT_URL),
           hasTelegramBotToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
           hasJwtSecret: Boolean(process.env.JWT_SECRET),
+          jwtSecretLength: process.env.JWT_SECRET?.length ?? 0,
           nodeEnv: process.env.NODE_ENV,
         },
       });

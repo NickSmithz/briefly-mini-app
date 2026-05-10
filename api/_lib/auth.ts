@@ -8,10 +8,15 @@ type TokenPayload = {
 };
 
 function getJwtSecret() {
-  return process.env.JWT_SECRET || "dev-briefly-secret";
+  return process.env.JWT_SECRET || (process.env.NODE_ENV !== "production" ? "dev-briefly-secret" : "");
+}
+
+export function hasJwtSecret() {
+  return Boolean(getJwtSecret());
 }
 
 export function signToken(payload: TokenPayload) {
+  if (!hasJwtSecret()) throw new Error("JWT_SECRET_MISSING");
   return jwt.sign(payload, getJwtSecret(), { expiresIn: "30d" });
 }
 
@@ -43,6 +48,7 @@ export function getBearerToken(req: ApiRequest | { headers?: unknown } | null | 
 export function verifyToken(req: ApiRequest): TokenPayload | null {
   const token = getBearerToken(req);
   if (!token) return null;
+  if (!hasJwtSecret()) return null;
   try {
     return jwt.verify(token, getJwtSecret()) as TokenPayload;
   } catch {

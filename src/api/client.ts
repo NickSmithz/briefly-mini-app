@@ -4,6 +4,34 @@ import type { AuthTelegramResponse, CurrentTeamResponse } from "./types";
 const BACKEND_TOKEN_KEY = "briefly-backend-token";
 
 type FetchOptions = RequestInit & { json?: unknown };
+type ApiFetchConfig = { skipAuth?: boolean };
+
+export type BackendErrorPayload = {
+  error?: string;
+  message?: string;
+  code?: string;
+  reason?: string;
+  ok?: boolean;
+  hasAuthorizationHeader?: boolean;
+  userId?: string;
+  teamCount?: number;
+};
+
+export class BackendApiError extends Error {
+  status: number;
+  code?: string;
+  payload: BackendErrorPayload | null;
+  path: string;
+
+  constructor(message: string, params: { status: number; payload: BackendErrorPayload | null; path: string }) {
+    super(message);
+    this.name = "BackendApiError";
+    this.status = params.status;
+    this.code = params.payload?.code;
+    this.payload = params.payload;
+    this.path = params.path;
+  }
+}
 
 export type DebugAuthResponse = {
   ok: boolean;
@@ -11,6 +39,7 @@ export type DebugAuthResponse = {
   userId?: string;
   teamCount?: number;
   error?: string;
+  code?: string;
 };
 
 export function setBackendToken(token: string) {
@@ -43,7 +72,14 @@ function toApiPath(path: string) {
   return normalized.startsWith("/api/") || normalized === "/api" ? normalized : `/api${normalized}`;
 }
 
-export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
+function getErrorMessage(path: string, status: number, payload: BackendErrorPayload | null) {
+  const serverMessage = payload?.error || payload?.message || payload?.reason || `Backend request failed with ${status}`;
+  if (status === 401 && path.includes("/auth/telegram")) return `Не удалось войти через Telegram: ${serverMessage}`;
+  if (status === 401) return `Backend отказал в доступе: ${serverMessage}`;
+  return serverMessage;
+}
+
+export async function apiFetch<T>(path: string, options: FetchOptions = {}, config: ApiFetchConfig = {}): Promise<T> {
   const token = getBackendToken();
   const headers = new Headers(options.headers);
   const body = options.json !== undefined ? JSON.stringify(options.json) : options.body;
@@ -52,23 +88,24 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
     headers.set("Content-Type", "application/json");
   }
 
-  if (token && !headers.has("Authorization")) {
+  if (!config.skipAuth && token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(toApiPath(path), {
+  const normalizedPath = toApiPath(path);
+  const response = await fetch(normalizedPath, {
     ...options,
     headers,
     body,
   });
-  const data = await response.json().catch(() => null);
+  const data = await response.json().catch(() => null) as BackendErrorPayload | null;
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Сессия Team sync истекла. Войдите через Telegram ещё раз.");
-    }
-
-    throw new Error(data?.error || data?.message || "Backend request failed");
+    throw new BackendApiError(getErrorMessage(normalizedPath, response.status, data), {
+      status: response.status,
+      payload: data,
+      path: normalizedPath,
+    });
   }
 
   return data as T;
@@ -78,7 +115,7 @@ export function debugAuth() {
   return apiFetch<DebugAuthResponse>("/debug-auth", { method: "GET" });
 }
 
-export const authTelegram = (initData: string) => apiFetch<AuthTelegramResponse>("/auth/telegram", { method: "POST", json: { initData } });
+export const authTelegram = (initData: string) => apiFetch<AuthTelegramResponse>("/auth/telegram", { method: "POST", json: { initData } }, { skipAuth: true });
 export const getCurrentTeam = () => apiFetch<CurrentTeamResponse>("/teams/current");
 export const getProjects = () => apiFetch<Project[]>("/projects");
 export const createProject = (data: Pick<Project, "name" | "description" | "color">) => apiFetch<Project>("/projects", { method: "POST", json: data });
