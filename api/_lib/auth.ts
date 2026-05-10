@@ -15,11 +15,29 @@ export function signToken(payload: TokenPayload) {
   return jwt.sign(payload, getJwtSecret(), { expiresIn: "30d" });
 }
 
-export function getBearerToken(req: ApiRequest) {
-  const header = req.headers.authorization;
-  const value = Array.isArray(header) ? header[0] : header;
-  if (!value?.startsWith("Bearer ")) return null;
-  return value.slice("Bearer ".length);
+export function getHeader(req: ApiRequest | { headers?: unknown } | null | undefined, name: string): string | undefined {
+  const lower = name.toLowerCase();
+  const headers = req && typeof req === "object" ? req.headers : undefined;
+  if (!headers) return undefined;
+
+  if (typeof (headers as { get?: unknown }).get === "function") {
+    const value = (headers as { get: (key: string) => string | null }).get(name) ?? (headers as { get: (key: string) => string | null }).get(lower);
+    return value ?? undefined;
+  }
+
+  const record = headers as Record<string, string | string[] | undefined>;
+  const value = record[name] ?? record[lower];
+  if (Array.isArray(value)) return value[0];
+  return typeof value === "string" ? value : undefined;
+}
+
+export function getBearerToken(req: ApiRequest | { headers?: unknown } | null | undefined): string | null {
+  const authorization = getHeader(req, "authorization");
+  if (!authorization) return null;
+
+  const [scheme, token] = authorization.split(" ");
+  if (scheme?.toLowerCase() !== "bearer" || !token) return null;
+  return token;
 }
 
 export function verifyToken(req: ApiRequest): TokenPayload | null {

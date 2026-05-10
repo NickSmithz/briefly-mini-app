@@ -16,6 +16,7 @@ export function ProjectsScreen() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const projects = data.projects.filter((project) => !project.archived);
 
   if (data.isBackendMode && !data.isBackendReady) {
@@ -33,13 +34,18 @@ export function ProjectsScreen() {
     return <ProjectDetailScreen onBack={() => setDetailOpen(false)} />;
   }
 
-  const createProject = () => {
+  const createProject = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
-    data.actions.addProject({ name: trimmedName, description: description.trim(), color: "indigo" });
-    setName("");
-    setDescription("");
-    setOpen(false);
+    setFormError(null);
+    try {
+      await data.actions.addProject({ name: trimmedName, description: description.trim(), color: "indigo" });
+      setName("");
+      setDescription("");
+      setOpen(false);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : "Не удалось создать проект.");
+    }
   };
 
   return (
@@ -85,10 +91,11 @@ export function ProjectsScreen() {
       )}
 
       {open && (
-        <Modal title="Новый проект" onClose={() => setOpen(false)}>
+        <Modal title="Новый проект" onClose={() => { setFormError(null); setOpen(false); }}>
           <div className="space-y-3">
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Название" />
             <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Описание" />
+            {formError && <div className="rounded-2xl bg-rose-500/10 p-3 text-sm text-rose-100">{formError}</div>}
             <Button fullWidth disabled={!name.trim()} onClick={createProject}>
               Создать
             </Button>

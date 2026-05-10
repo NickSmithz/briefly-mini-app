@@ -32,10 +32,13 @@ export function useBrieflyData() {
 
   const addProject = (project: Omit<Project, "id" | "teamId" | "createdAt">) => {
     if (mode === "backend") {
-      void backend.createProject(project).then((created) => local.setSelectedProject(created.id));
-      return;
+      return backend.createProject(project).then((created) => {
+        local.setSelectedProject(created.id);
+        return created;
+      });
     }
     local.addProject(project);
+    return Promise.resolve(undefined);
   };
 
   const updateProject = (projectId: string, patch: Partial<Project>) => {
@@ -107,7 +110,7 @@ export function useBrieflyData() {
   };
 
   const deleteContentItem = (id: string) => {
-    if (mode === "backend") void import("../api/client").then((api) => api.apiFetch(`/api/content-items/${id}`, { method: "DELETE" }).then(() => backend.loadWorkspace()));
+    if (mode === "backend") void import("../api/client").then((api) => api.apiFetch(`/content-items/${id}`, { method: "DELETE" }).then(() => backend.loadWorkspace()));
     else local.deleteContentItem(id);
   };
 

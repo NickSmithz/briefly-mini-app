@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { prisma } from "../_lib/prisma.js";
 import { error, json, readJson, type ApiRequest, type ApiResponse } from "../_lib/http.js";
-import { signToken } from "../_lib/auth.js";
+import { getBearerToken, signToken, verifyToken } from "../_lib/auth.js";
 import { parseTelegramUser, verifyTelegramInitData } from "../_lib/telegram.js";
 
 const bodySchema = z.object({ initData: z.string().optional().default("") });
@@ -53,4 +53,25 @@ export async function authTelegram(req: ApiRequest, res: ApiResponse) {
   } catch (cause) {
     error(res, cause instanceof Error ? cause.message : "Auth failed", 400);
   }
+}
+
+export async function debugAuth(req: ApiRequest, res: ApiResponse) {
+  const hasAuthorizationHeader = Boolean(getBearerToken(req));
+  const payload = verifyToken(req);
+
+  if (!hasAuthorizationHeader || !payload) {
+    return json(res, {
+      ok: false,
+      hasAuthorizationHeader,
+      error: hasAuthorizationHeader ? "Invalid Authorization token" : "Missing Authorization header",
+    }, 401);
+  }
+
+  const teamCount = await prisma.teamMember.count({ where: { userId: payload.userId } });
+  return json(res, {
+    ok: true,
+    hasAuthorizationHeader: true,
+    userId: payload.userId,
+    teamCount,
+  });
 }

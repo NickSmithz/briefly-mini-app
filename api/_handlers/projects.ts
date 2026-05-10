@@ -6,22 +6,27 @@ import { requireUser } from "../_lib/auth.js";
 const createSchema = z.object({ name: z.string().trim().min(1), description: z.string().optional(), color: z.string().optional() });
 const patchSchema = z.object({ name: z.string().trim().min(1).optional(), description: z.string().optional(), color: z.string().optional(), archived: z.boolean().optional() });
 
+function getErrorStatus(cause: unknown) {
+  return cause instanceof Error && cause.message === "Unauthorized" ? 401 : 400;
+}
+
 export async function listProjects(req: ApiRequest, res: ApiResponse) {
   try {
     const { team } = await requireUser(req);
     json(res, await prisma.project.findMany({ where: { teamId: team.id }, orderBy: { createdAt: "asc" } }));
   } catch (cause) {
-    error(res, cause instanceof Error ? cause.message : "Projects request failed", 400);
+    error(res, cause instanceof Error ? cause.message : "Projects request failed", getErrorStatus(cause));
   }
 }
 
 export async function createProject(req: ApiRequest, res: ApiResponse) {
   try {
     const { team } = await requireUser(req);
+    if (!team?.id) return error(res, "No team found for current user", 400);
     const body = createSchema.parse(readJson(req));
     json(res, await prisma.project.create({ data: { ...body, teamId: team.id } }), 201);
   } catch (cause) {
-    error(res, cause instanceof Error ? cause.message : "Project create failed", 400);
+    error(res, cause instanceof Error ? cause.message : "Project create failed", getErrorStatus(cause));
   }
 }
 
@@ -32,6 +37,6 @@ export async function updateProject(req: ApiRequest, res: ApiResponse, id: strin
     if (!existing) return error(res, "Project not found", 404);
     json(res, await prisma.project.update({ where: { id }, data: patchSchema.parse(readJson(req)) }));
   } catch (cause) {
-    error(res, cause instanceof Error ? cause.message : "Project update failed", 400);
+    error(res, cause instanceof Error ? cause.message : "Project update failed", getErrorStatus(cause));
   }
 }

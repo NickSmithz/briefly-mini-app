@@ -54,6 +54,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       });
     }
 
+    if (pathname === "/debug-auth") {
+      if (method !== "GET") return methodNotAllowed(res, ["GET"]);
+      const { debugAuth } = await import("./_handlers/auth.js");
+      return debugAuth(routedReq, res);
+    }
+
     if (pathname === "/auth/telegram") {
       if (method !== "POST") return methodNotAllowed(res, ["POST"]);
       const { authTelegram } = await import("./_handlers/auth.js");
