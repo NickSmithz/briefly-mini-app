@@ -1,9 +1,10 @@
 import type { ContentItem, ImportDraft, Project, RoleMapping, Task, TeamMember } from "../types";
 import type { AuthTelegramResponse, CurrentTeamResponse } from "./types";
 
-const tokenKey = "briefly-backend-token";
+const BACKEND_TOKEN_KEY = "briefly-backend-token";
 
 type FetchOptions = RequestInit & { json?: unknown };
+
 export type DebugAuthResponse = {
   ok: boolean;
   hasAuthorizationHeader: boolean;
@@ -13,15 +14,18 @@ export type DebugAuthResponse = {
 };
 
 export function setBackendToken(token: string) {
-  localStorage.setItem(tokenKey, token);
+  if (typeof window === "undefined") return;
+  localStorage.setItem(BACKEND_TOKEN_KEY, token);
 }
 
-export function getBackendToken() {
-  return localStorage.getItem(tokenKey);
+export function getBackendToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(BACKEND_TOKEN_KEY);
 }
 
 export function clearBackendToken() {
-  localStorage.removeItem(tokenKey);
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(BACKEND_TOKEN_KEY);
 }
 
 function toQuery(params?: Record<string, string | undefined>) {
@@ -42,30 +46,36 @@ function toApiPath(path: string) {
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const token = getBackendToken();
   const headers = new Headers(options.headers);
-  if (options.json !== undefined) headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const body = options.json !== undefined ? JSON.stringify(options.json) : options.body;
+
+  if (!headers.has("Content-Type") && (options.json !== undefined || body)) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const response = await fetch(toApiPath(path), {
     ...options,
     headers,
-    body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
+    body,
   });
   const data = await response.json().catch(() => null);
-  if (response.status === 401) throw new Error("Сессия Team sync истекла. Войдите через Telegram ещё раз.");
-  if (!response.ok) throw new Error(data?.error || "Backend request failed");
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Сессия Team sync истекла. Войдите через Telegram ещё раз.");
+    }
+
+    throw new Error(data?.error || data?.message || "Backend request failed");
+  }
+
   return data as T;
 }
 
-export async function debugAuth() {
-  const token = getBackendToken();
-  const headers = new Headers();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(toApiPath("/debug-auth"), { headers });
-  const data = await response.json().catch(() => ({
-    ok: false,
-    hasAuthorizationHeader: Boolean(token),
-    error: "Debug auth request failed",
-  }));
-  return data as DebugAuthResponse;
+export function debugAuth() {
+  return apiFetch<DebugAuthResponse>("/debug-auth", { method: "GET" });
 }
 
 export const authTelegram = (initData: string) => apiFetch<AuthTelegramResponse>("/auth/telegram", { method: "POST", json: { initData } });
