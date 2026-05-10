@@ -4,6 +4,13 @@ import type { AuthTelegramResponse, CurrentTeamResponse } from "./types";
 const tokenKey = "briefly-backend-token";
 
 type FetchOptions = RequestInit & { json?: unknown };
+export type DebugAuthResponse = {
+  ok: boolean;
+  hasAuthorizationHeader: boolean;
+  userId?: string;
+  teamCount?: number;
+  error?: string;
+};
 
 export function setBackendToken(token: string) {
   localStorage.setItem(tokenKey, token);
@@ -46,6 +53,19 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
   if (response.status === 401) throw new Error("Сессия Team sync истекла. Войдите через Telegram ещё раз.");
   if (!response.ok) throw new Error(data?.error || "Backend request failed");
   return data as T;
+}
+
+export async function debugAuth() {
+  const token = getBackendToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(toApiPath("/debug-auth"), { headers });
+  const data = await response.json().catch(() => ({
+    ok: false,
+    hasAuthorizationHeader: Boolean(token),
+    error: "Debug auth request failed",
+  }));
+  return data as DebugAuthResponse;
 }
 
 export const authTelegram = (initData: string) => apiFetch<AuthTelegramResponse>("/auth/telegram", { method: "POST", json: { initData } });
